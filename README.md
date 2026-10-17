@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="PrismWA Banner" width="100%">
+</p>
+
 # PrismBot
 
 WhatsApp automation bot built with Go, SQLite, and a web dashboard.
@@ -26,7 +30,7 @@ git checkout v1
 - **Database:** Local SQLite (`modernc.org/sqlite`) with WAL mode. Requires no CGO.
 - **Worker Pool:** Bounded worker pool handling asynchronous message dispatch and media pipelines.
 - **AI Routing:** Multi-provider interface supporting Google Gemini, OpenRouter, Groq, and Ollama with fallback routing.
-- **Dashboard:** Embedded HTTP server running on `:8080` providing real-time stats, log streaming, and bot controls.
+- **Dashboard:** Embedded HTTP server running on `:3000` providing real-time stats, log streaming, and bot controls.
 
 ---
 
@@ -45,7 +49,7 @@ git checkout v1
 ```bash
 git clone <repo-url>
 cd WhatsappBot
-cp .env.example .env  # Or create .env manually
+cp  .env  # Or create .env manually
 ```
 
 Configure your credentials in `.env`:
