@@ -1,0 +1,95 @@
+# Secrets and Environment Variables
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.cert
+*.p12
+cookies.txt
+cookies*.txt
+
+# Legacy / Archive
+
+# WhatsApp Authentication & Sessions
+auth_info/
+**/auth_info/
+auth_info_baileys/
+**/auth_info_baileys/
+*session*.json
+*.session
+
+# Persistent Data, Databases & User State
+data/
+**/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+notes.json
+autoreply.json
+chat_stats.json
+contacts.json
+deleted_messages.json
+dynamic_store.json
+
+# Go Binaries and Build Outputs
+prismbot
+prismbot*
+whatsapp-bot.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.old
+
+# Go Dependencies
+vendor/
+
+# Node.js Dependencies and Logs
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Temporary, Scratch and Test Files
+scratch/
+**/scratch/
+temp/
+tmp/
+*.tmp
+*.temp.*
+test-direct.*
+test_hf.*
+test_pipe.*
+
+# AI Agents & Assistants
+.agents/
+skills-lock.json
+.gemini/
+.claude/
+.cursor/
+
+# OS and Editor Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
