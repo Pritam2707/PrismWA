@@ -83,6 +83,13 @@ chmod +x build.sh start.sh
 ./start.sh
 ```
 
+**Android (Termux):**
+```bash
+chmod +x build-termux.bat
+build-termux.bat
+./prismbot-termux-arm64
+```
+
 **Direct Run (Development):**
 ```bash
 go run .
@@ -106,7 +113,7 @@ Scan the terminal QR code using WhatsApp on your phone (Linked Devices).
 | `FISH_AUDIO_API_KEY` | — | API key for Fish Audio TTS |
 | `RVC_API_URL` | `http://127.0.0.1:8000` | Local RVC inference endpoint |
 | `SERPER_API_KEY` | — | Serper Google Search API key |
-| `PORT` | `8080` | Dashboard HTTP port |
+| `PORT` | `3000` | Dashboard HTTP port |
 
 ---
 
@@ -181,5 +188,6 @@ build-termux.bat
 ---
 
 ## License
-
-Personal and internal use.
+Use at your own risk \
+Refer to Whatsapp Terms and Conditions before using. \
+Personal and internal use(Not to be used for commercial purposes).

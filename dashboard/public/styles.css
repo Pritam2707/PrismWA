@@ -158,6 +158,34 @@ textarea:focus-visible {
   border-bottom: 1px solid var(--border-muted);
 }
 
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+.brand-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.mobile-brand-logo {
+  display: none;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .mobile-brand-logo {
+    display: inline-block;
+  }
+}
+
 .brand-badge {
   width: 28px;
   height: 28px;

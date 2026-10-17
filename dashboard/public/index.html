@@ -6,7 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#0a0c11">
-  <title>PrismBot Console</title>
+  <meta name="description" content="PrismWA WhatsApp Operations, Telemetry and Administration Console">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PrismWA">
+  <title>PrismWA Console</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -219,8 +228,11 @@
   <!-- Left Sidebar Navigation -->
   <aside class="app-sidebar" id="appSidebar">
     <div class="sidebar-header">
-      <span class="brand-title">PrismBot Console</span>
-      <span class="brand-version">Go Pure</span>
+      <img src="logo.png" alt="PrismWA Logo" class="brand-logo" width="28" height="28">
+      <div class="brand-info">
+        <span class="brand-title">PrismWA</span>
+        <span class="brand-version">Go Pure</span>
+      </div>
     </div>
 
     <nav class="sidebar-nav">
@@ -316,6 +328,7 @@
             <use href="#icon-menu" />
           </svg>
         </button>
+        <img src="logo.png" alt="PrismWA Logo" class="mobile-brand-logo" width="22" height="22">
         <span class="header-title" id="pageTitle">Overview</span>
       </div>
 
@@ -2091,6 +2104,19 @@
 
   <script src="app.js"></script>
   <script src="ux.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('PrismWA Service Worker active:', registration.scope);
+          })
+          .catch((error) => {
+            console.warn('PrismWA Service Worker registration error:', error);
+          });
+      });
+    }
+  </script>
 </body>
 
 </html>
