@@ -47,7 +47,7 @@ git checkout v1
 ### 1. Clone & Configure
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Pritam2707/PrismWA
 cd WhatsappBot
 cp  .env  # Or create .env manually
 ```
