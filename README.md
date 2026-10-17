@@ -58,7 +58,7 @@ Configure your credentials in `.env`:
 # AI Provider: gemini | openrouter | groq | ollama
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your_key_here
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
 
 # Optional: Voice Synthesis (Fish Audio & RVC)
 FISH_AUDIO_API_KEY=your_fish_audio_key

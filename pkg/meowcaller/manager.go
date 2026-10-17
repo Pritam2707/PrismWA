@@ -169,20 +169,18 @@ func (m *Manager) handleIncomingCall(call *meowcaller.Call) {
 		enabled = false
 	}
 	autoAccept := m.autoAcceptCalls
-	isPlaying := m.isPlaying
 	peer := call.Peer().String()
 	m.mu.Unlock()
 
-	// if !enabled {
-	// 	m.log("WARN", "Rejecting incoming call from %s (MeowCaller is disabled)", peer)
-	// 	_ = call.Reject()
-	// 	return
-	// }
+	if !enabled {
+		m.log("INFO", "Ignoring incoming call from %s (MeowCaller is disabled)", peer)
+		return
+	}
 
-	// Always pre-attach audio receiver & lifecycle callbacks before answering so no initial frames are dropped
+	// Attach lifecycle callbacks (OnReady, OnStateChange, OnEnd)
 	m.hookCallLifecycle(call, peer)
 
-	if autoAccept || isPlaying {
+	if autoAccept {
 		m.log("INFO", "Auto-answering incoming call from %s", peer)
 		if err := call.Answer(); err != nil {
 			m.log("ERROR", "Failed to answer call from %s: %v", peer, err)
@@ -205,7 +203,7 @@ func (m *Manager) handleIncomingCall(call *meowcaller.Call) {
 		}
 		m.mu.Unlock()
 	} else {
-		m.log("INFO", "Incoming call from %s ringing. Auto-accept is off. Waiting for answer...", peer)
+		m.log("INFO", "Incoming call from %s ringing. Auto-accept is off. Waiting for answer or pickup on another device...", peer)
 		m.mu.Lock()
 		m.pendingCall = call
 		m.pendingCallPeer = peer
@@ -232,28 +230,9 @@ func (m *Manager) hookCallLifecycle(call *meowcaller.Call, peer string) {
 		}
 	})
 
-	// Attach audio sink to receive remote participant PCM frames
-	call.Receive(sink)
-
-	// Ensure a Player is subscribed so the relay bridge sends silence frames and stays open.
-	// Without an active Player, the relay never fully opens and inbound audio is silently discarded.
-	mixer := m.getOrCreateMixer()
-	m.mu.Lock()
-	if m.player == nil {
-		m.player = meowcaller.NewPlayer()
-	}
-	if m.player.State() != meowcaller.PlayerPlaying {
-		m.player.Play(mixer)
-	}
-	call.Subscribe(m.player)
-	m.mu.Unlock()
-
-	call.OnReady(func() {
-		m.log("INFO", "Media session is READY for call with %s: relay connected and inbound audio active", peer)
-		if m.voiceBot != nil {
-			m.voiceBot.StartCallContext(peer)
-		}
+	attachMedia := func() {
 		call.Receive(sink)
+		mixer := m.getOrCreateMixer()
 		m.mu.Lock()
 		if m.player == nil {
 			m.player = meowcaller.NewPlayer()
@@ -263,6 +242,14 @@ func (m *Manager) hookCallLifecycle(call *meowcaller.Call, peer string) {
 		}
 		call.Subscribe(m.player)
 		m.mu.Unlock()
+	}
+
+	call.OnReady(func() {
+		m.log("INFO", "Media session is READY for call with %s: relay connected and inbound audio active", peer)
+		if m.voiceBot != nil {
+			m.voiceBot.StartCallContext(peer)
+		}
+		attachMedia()
 	})
 
 	call.OnStateChange(func(phase meowcaller.CallPhase) {
@@ -273,16 +260,7 @@ func (m *Manager) hookCallLifecycle(call *meowcaller.Call, peer string) {
 			if m.voiceBot != nil {
 				m.voiceBot.StartCallContext(peer)
 			}
-			call.Receive(sink)
-			m.mu.Lock()
-			if m.player == nil {
-				m.player = meowcaller.NewPlayer()
-			}
-			if m.player.State() != meowcaller.PlayerPlaying {
-				m.player.Play(mixer)
-			}
-			call.Subscribe(m.player)
-			m.mu.Unlock()
+			attachMedia()
 		}
 	})
 

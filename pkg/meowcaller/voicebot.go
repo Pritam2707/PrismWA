@@ -1202,6 +1202,82 @@ func extractNextSentence(buf string, isFirst bool) (string, string) {
 	return "", buf
 }
 
+var (
+	errSongActionHandled = errors.New("voicebot: song action handled")
+	songActionPlayRegex  = regexp.MustCompile(`(?i)\[{1,2}\s*PLAY_SONG\s*:\s*([^\]]+?)\s*\]{1,2}`)
+	songActionStopRegex  = regexp.MustCompile(`(?i)\[{1,2}\s*STOP_SONG\s*\]{1,2}`)
+	convPlayRegex        = regexp.MustCompile(`(?i)^(?:sure,?\s*)?(?:now\s+)?playing\s+["']?([^,\.!\n]+?)["']?(?:\s+(?:right\s+now|for\s+you|coming\s+right\s+up|on\s+it))?[\.!,]?`)
+)
+
+// extractSongActionFromText parses structured action tags or conversational confirmations from LLM text.
+// Returns action ("play", "stop", or "") and query (the song title/query if action == "play").
+func extractSongActionFromText(text string) (action string, query string) {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", ""
+	}
+
+	// 1. Structured action tags: [[PLAY_SONG: <query>]] or [PLAY_SONG: <query>]
+	if m := songActionPlayRegex.FindStringSubmatch(trimmed); len(m) == 2 {
+		q := strings.TrimSpace(m[1])
+		q = strings.Trim(q, " \"'.,?!")
+		if len(q) >= 2 {
+			return "play", q
+		}
+	}
+
+	// [[STOP_SONG]] or [STOP_SONG]
+	if songActionStopRegex.MatchString(trimmed) {
+		return "stop", ""
+	}
+
+	// 2. Conversational fallback when LLM confirms playing a song in voice chat:
+	// e.g. "Playing It's My Life right now, coming right up!"
+	// e.g. "Now playing Shape of You by Ed Sheeran."
+	// e.g. "Sure, playing Bohemian Rhapsody for you!"
+	lower := strings.ToLower(trimmed)
+	var convPrefix string
+	for _, pfx := range []string{"sure, playing ", "sure playing ", "now playing ", "playing "} {
+		if strings.HasPrefix(lower, pfx) {
+			convPrefix = pfx
+			break
+		}
+	}
+	if convPrefix != "" {
+		rest := strings.TrimSpace(trimmed[len(convPrefix):])
+		// Cut off at first sentence boundary like '.' or '\n' or '!'
+		if idx := strings.IndexAny(rest, ".\n!"); idx != -1 {
+			rest = strings.TrimSpace(rest[:idx])
+		}
+		// If there is a comma, check if after comma is trailing conversational filler
+		if idx := strings.Index(rest, ","); idx != -1 {
+			afterComma := strings.ToLower(strings.TrimSpace(rest[idx+1:]))
+			if strings.HasPrefix(afterComma, "coming right up") ||
+				strings.HasPrefix(afterComma, "right now") ||
+				strings.HasPrefix(afterComma, "for you") ||
+				strings.HasPrefix(afterComma, "enjoy") ||
+				strings.HasPrefix(afterComma, "on it") {
+				rest = strings.TrimSpace(rest[:idx])
+			}
+		}
+		// Strip trailing filler words
+		stripPhrases := []string{
+			" right now", " for you", " coming right up", " on it", " right away",
+		}
+		for _, sp := range stripPhrases {
+			if strings.HasSuffix(strings.ToLower(rest), sp) {
+				rest = strings.TrimSpace(rest[:len(rest)-len(sp)])
+			}
+		}
+		rest = strings.Trim(rest, " \"'.,?!")
+		if len(rest) >= 2 && !strings.EqualFold(rest, "a song") && !strings.EqualFold(rest, "music") && !strings.EqualFold(rest, "track") && !strings.EqualFold(rest, "outside") && !strings.EqualFold(rest, "with me") {
+			return "play", rest
+		}
+	}
+
+	return "", ""
+}
+
 // parseSongIntent checks if user input is an intentional song playback request or stop request
 func parseSongIntent(input string, customTrigger string) (action string, query string) {
 	clean := strings.ToLower(strings.TrimSpace(input))
@@ -1228,9 +1304,25 @@ func parseSongIntent(input string, customTrigger string) (action string, query s
 		trigger = "play song"
 	}
 
+	cleanNorm := clean
+	// Normalize common punctuation right after trigger phrases (e.g. "play song, believer" -> "play song believer")
+	prefixesToNorm := []string{
+		trigger,
+		"play song", "play music", "play track", "play the song", "play a song",
+		"please " + trigger, "can you " + trigger, "could you " + trigger, "hey bot " + trigger, "bot " + trigger,
+	}
+	for _, pfx := range prefixesToNorm {
+		for _, sep := range []string{", ", ": ", " - ", "- ", ":", ","} {
+			if strings.HasPrefix(cleanNorm, pfx+sep) {
+				cleanNorm = pfx + " " + strings.TrimSpace(cleanNorm[len(pfx+sep):])
+				break
+			}
+		}
+	}
+
 	extract := func(prefix string) (string, bool) {
-		if strings.HasPrefix(clean, prefix) {
-			q := strings.TrimSpace(clean[len(prefix):])
+		if strings.HasPrefix(cleanNorm, prefix) {
+			q := strings.TrimSpace(cleanNorm[len(prefix):])
 			q = strings.TrimPrefix(q, "called ")
 			q = strings.TrimPrefix(q, "named ")
 			q = strings.TrimPrefix(q, ": ")
@@ -1253,6 +1345,8 @@ func parseSongIntent(input string, customTrigger string) (action string, query s
 
 	if trigger == "play song" {
 		patterns = append(patterns,
+			"play the song ", "please play the song ", "can you play the song ", "could you play the song ",
+			"play a song ", "please play a song ", "can you play a song ",
 			"play music ", "please play music ", "can you play music ", "could you play music ",
 			"play track ", "please play track ", "can you play track ",
 		)
@@ -1473,12 +1567,14 @@ func (v *VoiceBot) triggerAIResponse(turnID int64, userInput string) {
 	triggerPhrase := v.cfg.SongTriggerPhrase
 	v.mu.RUnlock()
 
-	// Check if caller requested in-call song playback or to stop music
+	// 1. Fast-path zero-latency check for unambiguous song/stop playback commands
 	action, songQuery := parseSongIntent(cleanInput, triggerPhrase)
 	if action == "play" && songQuery != "" {
+		v.manager.log("INFO", "[VoiceBot] ⚡ Fast-path matched song request: %q", songQuery)
 		go v.handleSongRequest(turnID, songQuery)
 		return
 	} else if action == "stop" {
+		v.manager.log("INFO", "[VoiceBot] ⚡ Fast-path matched stop music request")
 		go v.handleStopSongRequest(turnID)
 		return
 	}
@@ -1499,6 +1595,25 @@ func (v *VoiceBot) triggerAIResponse(turnID int64, userInput string) {
 		sysPrompt = "You are a witty, helpful, ultra-concise real-time AI voice assistant on a live phone call. Keep responses direct, natural, conversational, and under 2 short sentences. Do not use bullet points, markdown formatting, emojis, asterisks, or lists."
 	}
 	v.mu.Unlock()
+
+	// Augment system prompt with real-time song intent decision rules if not already present
+	if !strings.Contains(sysPrompt, "PLAY_SONG") {
+		sysPrompt += "\n\n" +
+			"REAL-TIME MUSIC PLAYBACK & ACTIONS:\n" +
+			"- If the caller wants to play, listen to, or queue any song, music, track, or artist (e.g. \"play song...\", \"play ...\", \"put on ...\", \"can you play ...\", or mentions a song after asking to play something), you MUST decide the song intent and begin your response with:\n" +
+			"[[PLAY_SONG: <song title and artist>]]\n" +
+			"Examples:\n" +
+			"  Caller: \"play song it's my life\"\n" +
+			"  Assistant: [[PLAY_SONG: It's My Life Bon Jovi]]\n" +
+			"  Caller: \"can you play something by the weeknd\"\n" +
+			"  Assistant: [[PLAY_SONG: The Weeknd]]\n" +
+			"  Caller: \"play shape of you\"\n" +
+			"  Assistant: [[PLAY_SONG: Shape of You Ed Sheeran]]\n" +
+			"- If the caller asks to stop, pause, or end music playback (e.g. \"stop music\", \"stop song\", \"pause\"), begin your response with:\n" +
+			"[[STOP_SONG]]\n" +
+			"- If the caller merely says \"play song\" without naming any track, ask them conversationally which song they would like to hear (do not use the tag until a song is named).\n" +
+			"- If the caller is having a general conversation or asking questions about music (e.g. \"who sang that?\", \"what's your favorite song?\"), reply conversationally WITHOUT any [[PLAY_SONG]] tag."
+	}
 
 	startTime := time.Now()
 	v.manager.log("INFO", "[VoiceBot] Caller said: \"%s\" (Streaming response with %s)...", cleanInput, geminiModel)
@@ -1523,6 +1638,7 @@ func (v *VoiceBot) triggerAIResponse(turnID int64, userInput string) {
 	var streamMu sync.Mutex
 	var streamBuf strings.Builder
 	chunksSpoken := 0
+	actionHandled := false
 
 	dispatchSentence := func(sentence string, isFirst bool) {
 		clean := sanitizeSpokenText(sentence)
@@ -1573,6 +1689,34 @@ func (v *VoiceBot) triggerAIResponse(turnID int64, userInput string) {
 		streamMu.Lock()
 		streamBuf.WriteString(token)
 		currentBuf := streamBuf.String()
+
+		// If no speech has been dispatched yet, check if the LLM emitted a song action tag
+		if chunksSpoken == 0 {
+			if act, q := extractSongActionFromText(currentBuf); act != "" {
+				actionHandled = true
+				streamBuf.Reset()
+				streamMu.Unlock()
+
+				fillerTimer.Stop()
+				if act == "play" && q != "" {
+					v.manager.log("INFO", "[VoiceBot] 🧠 LLM decided play song intent: %q", q)
+					go v.handleSongRequest(turnID, q)
+				} else if act == "stop" {
+					v.manager.log("INFO", "[VoiceBot] 🧠 LLM decided stop music intent")
+					go v.handleStopSongRequest(turnID)
+				}
+				return errSongActionHandled
+			}
+
+			// If currentBuf starts with [ or [[ (pending tag) and hasn't closed yet,
+			// hold off on dispatching to TTS
+			trimmedBuf := strings.TrimSpace(currentBuf)
+			if (strings.HasPrefix(trimmedBuf, "[") || strings.HasPrefix(trimmedBuf, "[[")) && !strings.Contains(trimmedBuf, "]") && len(trimmedBuf) < 120 {
+				streamMu.Unlock()
+				return nil
+			}
+		}
+
 		sentence, remaining := extractNextSentence(currentBuf, chunksSpoken == 0)
 		if sentence != "" {
 			streamBuf.Reset()
@@ -1598,11 +1742,33 @@ func (v *VoiceBot) triggerAIResponse(turnID int64, userInput string) {
 
 	fillerTimer.Stop()
 
-	// Flush any trailing text remaining after stream completes
+	if actionHandled || errors.Is(err, errSongActionHandled) {
+		return
+	}
+
 	streamMu.Lock()
 	trailing := streamBuf.String()
 	streamBuf.Reset()
 	streamMu.Unlock()
+
+	// Check if trailing buffer or full reply text contains an action tag or conversational song confirmation
+	checkText := trailing
+	if replyText != "" {
+		checkText = replyText
+	}
+	if chunksSpoken == 0 {
+		if act, q := extractSongActionFromText(checkText); act != "" {
+			if act == "play" && q != "" {
+				v.manager.log("INFO", "[VoiceBot] 🧠 LLM decided play song intent: %q", q)
+				go v.handleSongRequest(turnID, q)
+				return
+			} else if act == "stop" {
+				v.manager.log("INFO", "[VoiceBot] 🧠 LLM decided stop music intent")
+				go v.handleStopSongRequest(turnID)
+				return
+			}
+		}
+	}
 
 	if strings.TrimSpace(trailing) != "" {
 		dispatchSentence(trailing, chunksSpoken == 0)

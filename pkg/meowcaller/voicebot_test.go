@@ -272,6 +272,13 @@ func TestParseSongIntent(t *testing.T) {
 		{input: "stop the music please", trigger: "play song", wantAction: "stop", wantQuery: ""},
 		{input: "pause music", trigger: "play song", wantAction: "stop", wantQuery: ""},
 
+		// Punctuation and speech variations
+		{input: "play song, shape of you", trigger: "play song", wantAction: "play", wantQuery: "shape of you"},
+		{input: "play song: believer", trigger: "play song", wantAction: "play", wantQuery: "believer"},
+		{input: "play song - faded", trigger: "play song", wantAction: "play", wantQuery: "faded"},
+		{input: "play the song bohemian rhapsody", trigger: "play song", wantAction: "play", wantQuery: "bohemian rhapsody"},
+		{input: "can you play the song starboy", trigger: "play song", wantAction: "play", wantQuery: "starboy"},
+
 		// Custom trigger phrase e.g. "dj play"
 		{input: "dj play starboy", trigger: "dj play", wantAction: "play", wantQuery: "starboy"},
 		{input: "can you dj play starboy", trigger: "dj play", wantAction: "play", wantQuery: "starboy"},
@@ -284,6 +291,68 @@ func TestParseSongIntent(t *testing.T) {
 			t.Errorf("parseSongIntent(%q, %q) = (%q, %q); want (%q, %q)",
 				tt.input, tt.trigger, act, q, tt.wantAction, tt.wantQuery)
 		}
+	}
+}
+
+func TestExtractSongActionFromText(t *testing.T) {
+	tests := []struct {
+		name       string
+		llmOutput  string
+		wantAction string
+		wantQuery  string
+	}{
+		{
+			name:       "Structured PLAY_SONG with double brackets",
+			llmOutput:  "[[PLAY_SONG: It's My Life Bon Jovi]] Playing It's My Life right now!",
+			wantAction: "play",
+			wantQuery:  "It's My Life Bon Jovi",
+		},
+		{
+			name:       "Structured PLAY_SONG with single brackets",
+			llmOutput:  "[PLAY_SONG: Shape of You]",
+			wantAction: "play",
+			wantQuery:  "Shape of You",
+		},
+		{
+			name:       "Structured STOP_SONG tag",
+			llmOutput:  "[[STOP_SONG]]",
+			wantAction: "stop",
+			wantQuery:  "",
+		},
+		{
+			name:       "Conversational confirmation fallback",
+			llmOutput:  "Playing It's My Life right now, coming right up!",
+			wantAction: "play",
+			wantQuery:  "It's My Life",
+		},
+		{
+			name:       "Conversational confirmation with now playing",
+			llmOutput:  "Now playing Bohemian Rhapsody by Queen.",
+			wantAction: "play",
+			wantQuery:  "Bohemian Rhapsody by Queen",
+		},
+		{
+			name:       "Normal conversational answer without song action",
+			llmOutput:  "I'm doing great! How can I help you today?",
+			wantAction: "",
+			wantQuery:  "",
+		},
+		{
+			name:       "General music discussion without play action",
+			llmOutput:  "My favorite band is Queen, especially their song Bohemian Rhapsody.",
+			wantAction: "",
+			wantQuery:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			act, q := extractSongActionFromText(tt.llmOutput)
+			if act != tt.wantAction || q != tt.wantQuery {
+				t.Errorf("extractSongActionFromText(%q) = (%q, %q); want (%q, %q)",
+					tt.llmOutput, act, q, tt.wantAction, tt.wantQuery)
+			}
+		})
 	}
 }
 
