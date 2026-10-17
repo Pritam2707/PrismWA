@@ -1,1112 +1,2096 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" data-theme="dark">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PrismBot • Command Dashboard</title>
-  
-  <!-- Inter, Outfit & JetBrains Mono Fonts -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0a0c11">
+  <title>PrismBot Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            display: ['Outfit', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            brand: {
-              50: '#f0fdf4',
-              500: '#10b981',
-              600: '#059669',
-            },
-            accent: {
-              500: '#6366f1',
-              600: '#4f46e5',
-            },
-            dark: {
-              900: '#090d16',
-              800: '#0f172a',
-              700: '#1e293b',
-              600: '#334155',
-            }
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- Lucide Icons & Chart.js CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <link rel="stylesheet" href="/styles.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="theme.css">
 </head>
-<body class="bg-dark-900 text-slate-100 min-h-screen flex flex-col md:flex-row antialiased selection:bg-brand-500 selection:text-white relative overflow-x-hidden">
 
-  <!-- Ambient Glow Mesh Background -->
-  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
-    <div class="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl"></div>
-    <div class="absolute top-1/2 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
-    <div class="absolute -bottom-32 left-1/3 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
-  </div>
+<body>
+  <a class="skip-link" href="#mainContent">Skip to content</a>
 
-  <!-- Mobile Header Bar -->
-  <header class="md:hidden flex items-center justify-between p-4 bg-dark-800/80 backdrop-blur border-b border-slate-800 sticky top-0 z-50">
-    <div class="flex items-center space-x-3">
-      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center font-bold text-white shadow-lg shadow-brand-500/20">
-        ⚡
-      </div>
-      <span class="font-bold tracking-tight text-white">PrismBot <span class="text-xs px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400 font-medium">Pro</span></span>
+  <!-- SVG Icon Library (Zero-Dependency Inline Symbols) -->
+  <svg style="display: none;">
+    <defs>
+      <symbol id="icon-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <rect x="9" y="9" width="6" height="6" />
+        <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+      </symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </symbol>
+      <symbol id="icon-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </symbol>
+      <symbol id="icon-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path
+          d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+      </symbol>
+      <symbol id="icon-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path
+          d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+      </symbol>
+      <symbol id="icon-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="m17 2 4 4-4 4" />
+        <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+        <path d="m7 22-4-4 4-4" />
+        <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+      </symbol>
+      <symbol id="icon-hard-drive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="22" y1="12" x2="2" y2="12" />
+        <path
+          d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        <line x1="6" y1="16" x2="6.01" y2="16" />
+        <line x1="10" y1="16" x2="10.01" y2="16" />
+      </symbol>
+      <symbol id="icon-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polyline points="4 17 10 11 4 5" />
+        <line x1="12" y1="19" x2="20" y2="19" />
+      </symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </symbol>
+      <symbol id="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+      </symbol>
+      <symbol id="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13" />
+        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+      </symbol>
+      <symbol id="icon-slash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+      </symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </symbol>
+      <symbol id="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path
+          d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+      </symbol>
+      <symbol id="icon-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3" />
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="6" y="4" width="4" height="16" rx="1" />
+        <rect x="14" y="4" width="4" height="16" rx="1" />
+      </symbol>
+      <symbol id="icon-skip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" />
+        <line x1="19" y1="5" x2="19" y2="19" />
+      </symbol>
+      <symbol id="icon-square" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="5" y="5" width="14" height="14" rx="2" />
+      </symbol>
+      <symbol id="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+        <line x1="12" y1="19" x2="12" y2="23" />
+        <line x1="8" y1="23" x2="16" y2="23" />
+      </symbol>
+      <symbol id="icon-mic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23" />
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+        <line x1="12" y1="19" x2="12" y2="23" />
+        <line x1="8" y1="23" x2="16" y2="23" />
+      </symbol>
+      <symbol id="icon-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </symbol>
+      <symbol id="icon-headphones" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+        <path
+          d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+      </symbol>
+      <symbol id="icon-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+      </symbol>
+      <symbol id="icon-volume-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <line x1="23" y1="9" x2="17" y2="15" />
+        <line x1="17" y1="9" x2="23" y2="15" />
+      </symbol>
+      <symbol id="icon-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="12" cy="12" r="2" />
+        <path
+          d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+      </symbol>
+      <symbol id="icon-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14" />
+        <line x1="4" y1="10" x2="4" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12" y2="3" />
+        <line x1="20" y1="21" x2="20" y2="16" />
+        <line x1="20" y1="12" x2="20" y2="3" />
+        <line x1="1" y1="14" x2="7" y2="14" />
+        <line x1="9" y1="8" x2="15" y2="8" />
+        <line x1="17" y1="16" x2="23" y2="16" />
+      </symbol>
+      <symbol id="icon-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+        <polyline points="13 2 13 9 20 9" />
+      </symbol>
+      <symbol id="icon-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- Left Sidebar Navigation -->
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-header">
+      <span class="brand-title">PrismBot Console</span>
+      <span class="brand-version">Go Pure</span>
     </div>
-    <button id="mobileMenuBtn" class="p-2 rounded-lg bg-dark-700 text-slate-300 hover:text-white">
-      <i data-lucide="menu" class="w-5 h-5"></i>
-    </button>
-  </header>
 
-  <!-- Sidebar Navigation -->
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-dark-800/95 md:bg-dark-800/60 backdrop-blur-xl border-r border-slate-800/80 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 md:static md:h-screen">
-    <!-- Brand Logo -->
-    <div class="p-6 border-b border-slate-800/60 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-teal-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-lg shadow-lg shadow-teal-500/25 ring-1 ring-white/20">
-          ⚡
-        </div>
-        <div>
-          <h1 class="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
-            PrismBot
-            <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Live</span>
-          </h1>
-          <p class="text-xs text-slate-400 font-mono" id="sidebarBotPhone">Baileys • WhatsApp</p>
-        </div>
-      </div>
-      <button id="closeSidebarBtn" class="md:hidden text-slate-400 hover:text-white">
-        <i data-lucide="x" class="w-5 h-5"></i>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Operations</div>
+      <button class="nav-btn active" data-tab="overview">
+        <svg>
+          <use href="#icon-cpu" />
+        </svg> Overview
       </button>
-    </div>
+      <button class="nav-btn" data-tab="audit">
+        <svg>
+          <use href="#icon-shield" />
+        </svg> Audit Vault
+      </button>
+      <button class="nav-btn" data-tab="chats">
+        <svg>
+          <use href="#icon-message" />
+        </svg> Chats & Contacts
+      </button>
+      <button class="nav-btn" data-tab="moderation">
+        <svg>
+          <use href="#icon-users" />
+        </svg> Moderation & Mutes
+      </button>
+      <button class="nav-btn" data-tab="meowcaller">
+        <svg>
+          <use href="#icon-music" />
+        </svg> MeowCaller & Party
+        <span class="badge badge-neutral" id="sidebarCallerBadge"
+          style="margin-left: auto; font-size: 10px; padding: 1px 6px;">OFF</span>
+      </button>
 
-    <!-- Navigation Menu Items -->
-    <nav class="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar text-sm font-medium">
-      <div class="text-[10px] font-bold tracking-wider text-slate-500 uppercase px-3 pt-2 pb-1">Core Ops</div>
-      <a href="#overview" class="nav-link active flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="overview">
-        <i data-lucide="layout-dashboard" class="w-4 h-4 text-emerald-400"></i>
-        <span>Overview</span>
-      </a>
-      <a href="#terminal" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="terminal">
-        <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
-        <span>Live Console</span>
-        <span id="logBadge" class="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400">0</span>
-      </a>
-      <a href="#commands" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="commands">
-        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
-        <span>Cheat Sheet</span>
-      </a>
+      <div class="nav-section-label">Automation & AI</div>
+      <button class="nav-btn" data-tab="personas">
+        <svg>
+          <use href="#icon-sparkles" />
+        </svg> AI Personas
+      </button>
+      <button class="nav-btn" data-tab="reports">
+        <svg>
+          <use href="#icon-sparkles" />
+        </svg> Reports & Deadlines
+      </button>
+      <button class="nav-btn" data-tab="autoreply">
+        <svg>
+          <use href="#icon-repeat" />
+        </svg> Auto-Reply
+      </button>
+      <button class="nav-btn" data-tab="reminders">
+        <svg>
+          <use href="#icon-clock" />
+        </svg> Reminders
+      </button>
+      <button class="nav-btn" data-tab="notes">
+        <svg>
+          <use href="#icon-folder" />
+        </svg> Notes System
+      </button>
 
-      <div class="text-[10px] font-bold tracking-wider text-slate-500 uppercase px-3 pt-3 pb-1">Chat Operations</div>
-      <a href="#controls" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="controls">
-        <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
-        <span>Chats & Names</span>
-      </a>
-      <a href="#messenger" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="messenger">
-        <i data-lucide="send" class="w-4 h-4 text-teal-400"></i>
-        <span>Direct Sender</span>
-      </a>
-      <a href="#broadcast" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="broadcast">
-        <i data-lucide="megaphone" class="w-4 h-4 text-amber-400"></i>
-        <span>Broadcast</span>
-      </a>
-
-      <div class="text-[10px] font-bold tracking-wider text-slate-500 uppercase px-3 pt-3 pb-1">Vault & Security</div>
-      <a href="#audit" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="audit">
-        <i data-lucide="shield-alert" class="w-4 h-4 text-rose-400"></i>
-        <span>Audit Vault</span>
-      </a>
-      <a href="#moderation" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="moderation">
-        <i data-lucide="shield-check" class="w-4 h-4 text-red-400"></i>
-        <span>Moderation & Mutes</span>
-      </a>
-      <a href="#storage" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="storage">
-        <i data-lucide="hard-drive" class="w-4 h-4 text-indigo-400"></i>
-        <span>Storage Cleaner</span>
-      </a>
-
-      <div class="text-[10px] font-bold tracking-wider text-slate-500 uppercase px-3 pt-3 pb-1">Intelligence & Tools</div>
-      <a href="#personas" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="personas">
-        <i data-lucide="bot" class="w-4 h-4 text-purple-400"></i>
-        <span>AI Personas & Test</span>
-      </a>
-      <a href="#autoreply" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="autoreply">
-        <i data-lucide="message-square-reply" class="w-4 h-4 text-emerald-400"></i>
-        <span>Auto-Reply</span>
-      </a>
-      <a href="#welcome" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="welcome">
-        <i data-lucide="hand-metal" class="w-4 h-4 text-teal-400"></i>
-        <span>Welcomer Studio</span>
-      </a>
-      <a href="#notes" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="notes">
-        <i data-lucide="folder-tree" class="w-4 h-4 text-amber-400"></i>
-        <span>Notes Explorer</span>
-      </a>
-      <a href="#reminders" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="reminders">
-        <i data-lucide="clock" class="w-4 h-4 text-sky-400"></i>
-        <span>Reminders</span>
-      </a>
-
-      <div class="text-[10px] font-bold tracking-wider text-slate-500 uppercase px-3 pt-3 pb-1">Analytics</div>
-      <a href="#analytics" class="nav-link flex items-center gap-3 px-3.5 py-2 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50" data-tab="analytics">
-        <i data-lucide="bar-chart-2" class="w-4 h-4 text-violet-400"></i>
-        <span>Chat Analytics</span>
-      </a>
+      <div class="nav-section-label">Infrastructure</div>
+      <button class="nav-btn" data-tab="storage">
+        <svg>
+          <use href="#icon-hard-drive" />
+        </svg> Storage & Media
+      </button>
+      <button class="nav-btn" data-tab="logs">
+        <svg>
+          <use href="#icon-terminal" />
+        </svg> Console Logs
+      </button>
     </nav>
 
-    <!-- Bottom Status Card -->
-    <div class="p-4 m-3 rounded-2xl glass-panel space-y-3">
-      <div class="flex items-center justify-between text-xs">
-        <span class="text-slate-300 font-medium flex items-center gap-2">
-          <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 radar-live"></span>
-          <span id="statusText">Connected</span>
-        </span>
-        <span id="uptimeBadge" class="font-mono text-slate-400 text-[11px]">0m</span>
+    <div class="sidebar-footer">
+      <div style="display: flex; align-items: center;">
+        <span class="status-dot offline" id="footerStatusDot"></span>
+        <span id="footerStatusText" style="font-size: 11px; color: var(--text-secondary);">Connecting</span>
       </div>
-      <div class="space-y-1">
-        <div class="flex justify-between text-[11px] text-slate-400">
-          <span>RAM (Heap)</span>
-          <span id="heapText" class="font-mono text-emerald-400">-- MB</span>
-        </div>
-        <div class="w-full h-1.5 bg-dark-900 rounded-full overflow-hidden">
-          <div id="heapBar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full w-0 transition-all duration-500"></div>
-        </div>
-      </div>
+      <button class="btn btn-sm" id="btnQuickRefresh" title="Refresh state">
+        <svg style="width: 12px; height: 12px; stroke-width: 2;">
+          <use href="#icon-refresh" />
+        </svg>
+      </button>
     </div>
   </aside>
 
-  <!-- Main Content View Area -->
-  <main class="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar">
-    
-    <!-- Top Action Bar -->
-    <header class="p-4 md:px-8 md:py-4 bg-dark-900/60 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between sticky top-0 z-30">
-      <div class="flex items-center space-x-3">
-        <h2 id="currentTabTitle" class="text-lg font-bold text-white tracking-tight">Overview</h2>
-        <span class="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-lg bg-dark-800 text-slate-300 border border-slate-700/60" id="currentSubTitle">System telemetry & metrics</span>
+  <!-- Main Content Container -->
+  <div class="app-main">
+    <!-- Topbar Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="mobile-menu-toggle" id="mobileMenuBtn" aria-label="Toggle navigation menu">
+          <svg style="width: 18px; height: 18px; stroke-width: 2;">
+            <use href="#icon-menu" />
+          </svg>
+        </button>
+        <span class="header-title" id="pageTitle">Overview</span>
       </div>
-      
-      <div class="flex items-center gap-2 sm:gap-3">
-        <!-- Quick Broadcast Launcher -->
-        <button id="quickBroadcastLauncherBtn" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition">
-          <i data-lucide="megaphone" class="w-3.5 h-3.5"></i>
-          <span>Broadcast</span>
+
+      <div class="header-actions">
+        <!-- Power Sleep/Wake Button -->
+        <button class="btn btn-sm" id="btnToggleSleep">
+          <span id="sleepBtnIcon"><svg class="icon-inline">
+              <use href="#icon-moon" />
+            </svg></span>
+          <span id="sleepBtnText">Sleep</span>
         </button>
 
-        <!-- Quick Sleep / Wake Toggle -->
-        <button id="quickSleepBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-dark-800 hover:bg-dark-700 text-slate-200 border border-slate-700/60 transition shadow-sm">
-          <i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-400"></i>
-          <span id="quickSleepLabel">Sleep</span>
+        <!-- Send Message Quick Action -->
+        <button class="btn btn-sm btn-primary" id="btnOpenSendMessageModal">
+          <svg style="width: 12px; height: 12px; stroke-width: 2;">
+            <use href="#icon-send" />
+          </svg>
+          <span>Send Message</span>
         </button>
 
-        <!-- Refresh Button -->
-        <button id="refreshBtn" class="p-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-300 border border-slate-700/60 transition hover:rotate-180 duration-300" title="Refresh Data">
-          <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+        <!-- Theme Mode Switcher -->
+        <button class="btn btn-sm" id="btnToggleTheme" aria-label="Switch light or dark mode">
+          <svg style="width: 13px; height: 13px; stroke-width: 2;" id="themeIcon">
+            <use href="#icon-sun" />
+          </svg>
         </button>
       </div>
     </header>
 
-    <!-- TAB 1: OVERVIEW -->
-    <section id="tab-overview" class="tab-panel p-4 md:p-8 space-y-6">
-      
-      <!-- Metrics Grid -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <!-- Card 1: Bot State -->
-        <div class="stat-card p-5 rounded-2xl bg-dark-800/50 border border-slate-800 hover:border-slate-700 transition backdrop-blur shadow-sm space-y-2">
-          <div class="flex items-center justify-between text-slate-400">
-            <span class="text-xs font-semibold uppercase tracking-wider">Bot Status</span>
-            <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <i data-lucide="activity" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div class="flex items-baseline gap-2">
-            <span id="metricBotStatus" class="text-xl md:text-2xl font-bold text-white">Active</span>
-            <span id="metricSleepState" class="text-xs text-emerald-400 font-medium">Awake</span>
-          </div>
-          <p class="text-xs text-slate-500 font-mono" id="metricUptimeSub">24/7 background worker</p>
-        </div>
+    <!-- Page Content Viewports -->
+    <main class="app-content">
 
-        <!-- Card 2: Messages Cached -->
-        <div class="stat-card p-5 rounded-2xl bg-dark-800/50 border border-slate-800 hover:border-slate-700 transition backdrop-blur shadow-sm space-y-2">
-          <div class="flex items-center justify-between text-slate-400">
-            <span class="text-xs font-semibold uppercase tracking-wider">Messages Logged</span>
-            <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
-              <i data-lucide="message-circle" class="w-4 h-4"></i>
+      <!-- 
+           1. Overview Tab
+            -->
+      <section class="tab-view active" id="view-overview">
+        <!-- Connection Status & QR Code Banner (If Not Connected) -->
+        <div class="card" id="connectionNoticeCard" style="margin-bottom: 20px; display: none;">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-shield" />
+              </svg>
+              <span>WhatsApp Connection State</span>
             </div>
+            <span class="badge badge-warning" id="qrStatusBadge">Pairing Required</span>
           </div>
-          <div class="flex items-baseline gap-2">
-            <span id="metricTotalMsgs" class="text-xl md:text-2xl font-bold text-white">0</span>
-            <span class="text-xs text-slate-400 font-medium">cached</span>
-          </div>
-          <p class="text-xs text-slate-500">Auto-pruned 24h rolling cache</p>
-        </div>
-
-        <!-- Card 3: Active Chats -->
-        <div class="stat-card p-5 rounded-2xl bg-dark-800/50 border border-slate-800 hover:border-slate-700 transition backdrop-blur shadow-sm space-y-2">
-          <div class="flex items-center justify-between text-slate-400">
-            <span class="text-xs font-semibold uppercase tracking-wider">Known Contacts</span>
-            <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-              <i data-lucide="users" class="w-4 h-4"></i>
+          <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
+            <div class="qr-container" id="qrContainer" style="display: none;">
+              <img id="qrImage" src="" alt="WhatsApp QR Code">
+              <span style="font-size: 11px; color: #555; margin-top: 8px;">Scan with WhatsApp Linked Devices</span>
             </div>
-          </div>
-          <div class="flex items-baseline gap-2">
-            <span id="metricActiveChats" class="text-xl md:text-2xl font-bold text-white">0</span>
-            <span class="text-xs text-slate-400 font-medium">contacts & groups</span>
-          </div>
-          <p class="text-xs text-slate-500">Names & profiles indexed</p>
-        </div>
-
-        <!-- Card 4: Memory Usage -->
-        <div class="stat-card p-5 rounded-2xl bg-dark-800/50 border border-slate-800 hover:border-slate-700 transition backdrop-blur shadow-sm space-y-2">
-          <div class="flex items-center justify-between text-slate-400">
-            <span class="text-xs font-semibold uppercase tracking-wider">Memory (RSS)</span>
-            <div class="p-2 rounded-lg bg-teal-500/10 text-teal-400">
-              <i data-lucide="cpu" class="w-4 h-4"></i>
+            <div style="flex: 1; min-width: 240px;">
+              <h4 style="font-size: 14px; margin-bottom: 6px;" id="connHeadline">Awaiting Authentication</h4>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" id="connDesc">
+                Scan the QR code to connect PrismBot to your WhatsApp account, or wait for the automatic session
+                recovery.
+              </p>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-primary" id="btnRefreshStatus">Check Status</button>
+              </div>
             </div>
-          </div>
-          <div class="flex items-baseline gap-2">
-            <span id="metricRss" class="text-xl md:text-2xl font-bold text-white">-- MB</span>
-            <span class="text-xs text-emerald-400 font-medium">Low Overhead</span>
-          </div>
-          <p class="text-xs text-slate-500 font-mono" id="metricPlatform">Linux / Termux</p>
-        </div>
-      </div>
-
-      <!-- Live Activity Chart & Quick Info -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Message Distribution Chart -->
-        <div class="lg:col-span-2 p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="font-bold text-white text-base">Content Breakdown</h3>
-              <p class="text-xs text-slate-400">Distribution of text, media, voice, and stickers across chats</p>
-            </div>
-            <div class="text-xs font-mono text-slate-400" id="chartTotalCount">Total: 0</div>
-          </div>
-          <div class="h-64 relative">
-            <canvas id="activityChart"></canvas>
           </div>
         </div>
 
-        <!-- Live Connection & Bot Profile -->
-        <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4 flex flex-col justify-between">
-          <div class="space-y-4">
-            <h3 class="font-bold text-white text-base flex items-center gap-2">
-              <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i>
-              WhatsApp Host
-            </h3>
-            
-            <!-- Profile Card -->
-            <div class="p-4 rounded-xl bg-dark-700/50 border border-slate-700/50 flex items-center gap-3.5">
-              <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-indigo-500 flex items-center justify-center font-bold text-white text-lg ring-2 ring-emerald-500/30">
-                🤖
-              </div>
-              <div class="min-w-0 flex-1">
-                <p id="profileName" class="font-bold text-white text-sm truncate">PrismBot Host</p>
-                <p id="profileJid" class="text-xs text-emerald-400 font-mono truncate">Connected</p>
+        <!-- Telemetry Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="card">
+            <span class="metric-label">Connection</span>
+            <div class="metric-value" id="metricConnState">Disconnected</div>
+            <span class="metric-sub" id="metricPhone">No active device</span>
+          </div>
+
+          <div class="card">
+            <span class="metric-label">Engine Uptime</span>
+            <div class="metric-value" id="metricUptime">00:00:00</div>
+            <span class="metric-sub" id="metricGoroutines">0 goroutines</span>
+          </div>
+
+          <div class="card">
+            <span class="metric-label">RAM Usage</span>
+            <div class="metric-value" id="metricMemory">0 MB</div>
+            <span class="metric-sub" id="metricSysMemory">System: 0 MB</span>
+          </div>
+
+          <div class="card">
+            <span class="metric-label">Message Cache</span>
+            <div class="metric-value" id="metricMessages">0</div>
+            <span class="metric-sub">In-memory ring buffer</span>
+          </div>
+        </div>
+
+        <!-- Quick Controls & System Telemetry -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+          <!-- Master Feature Controls -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-shield" />
+                </svg> Master Controls
               </div>
             </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">Power Mode</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);">Active processing or low-power sleep</div>
+                </div>
+                <span class="badge" id="badgePowerState">Awake</span>
+              </div>
 
-            <!-- Connection Status Pill -->
-            <div class="space-y-2 text-xs">
-              <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-400">
-                <span>Connection</span>
-                <span id="detailSockState" class="font-semibold text-emerald-400">Connected</span>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">Anti-Delete Protection</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);" id="labelAntiDeleteCount">0 chats
+                    protected</div>
+                </div>
+                <span class="badge badge-neutral">Chat-Scoped</span>
               </div>
-              <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-400">
-                <span>Anti-Delete Protected</span>
-                <span id="detailAntiDeleteCount" class="font-mono text-slate-200">0 chats</span>
+
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">Interactive Features</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);" id="labelFeaturesCount">0 chats active
+                  </div>
+                </div>
+                <span class="badge badge-neutral">Chat-Scoped</span>
               </div>
-              <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-400">
-                <span>Active Reminders</span>
-                <span id="detailRemindersCount" class="font-mono text-slate-200">0 scheduled</span>
-              </div>
-              <div class="flex justify-between py-1.5 text-slate-400">
-                <span>Muted Users</span>
-                <span id="detailMutedCount" class="font-mono text-slate-200">0 users</span>
+
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-muted); padding-top: 10px;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">MeowCaller VoIP Party</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);" id="labelMeowCallerOverview">Off by
+                    default (Safe)</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge badge-neutral" id="badgeMeowCallerState">OFF</span>
+                  <button class="btn btn-sm" id="btnQuickOpenCaller"
+                    style="font-size: 11px; padding: 2px 8px;">Console</button>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Quick Actions Bar -->
-          <div class="pt-2 border-t border-slate-800/80 flex gap-2">
-            <button onclick="window.location.hash='messenger'" class="flex-1 py-2 px-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5">
-              <i data-lucide="send" class="w-3.5 h-3.5 text-emerald-400"></i> Direct Message
-            </button>
-            <button onclick="window.location.hash='broadcast'" class="py-2 px-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5">
-              <i data-lucide="megaphone" class="w-3.5 h-3.5 text-amber-400"></i> Broadcast
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 2: CHATS & CONTACT NICKNAMES -->
-    <section id="tab-controls" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-lg text-white">Chat Directory & Custom Names</h3>
-          <p class="text-xs text-slate-400">Manage real contact names, nicknames, and permissions for groups & DMs</p>
-        </div>
-        <!-- Search and Filter Bar -->
-        <div class="flex items-center gap-2">
-          <div class="relative">
-            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
-            <input type="text" id="chatSearchInput" placeholder="Search by name or number..." class="pl-9 pr-3 py-1.5 rounded-xl bg-dark-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 w-48 sm:w-64">
-          </div>
-          <select id="chatTypeFilter" class="px-2.5 py-1.5 rounded-xl bg-dark-800 border border-slate-700 text-xs text-slate-300 focus:outline-none focus:border-emerald-500">
-            <option value="all">All Chats</option>
-            <option value="groups">Groups Only</option>
-            <option value="dms">Direct Messages</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Chats Table -->
-      <div class="rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-dark-700/40 text-slate-400 uppercase font-semibold border-b border-slate-800">
-              <tr>
-                <th class="p-4">Contact / Group Name</th>
-                <th class="p-4">Phone / JID</th>
-                <th class="p-4">Messages</th>
-                <th class="p-4">Anti-Delete</th>
-                <th class="p-4">Bot Features</th>
-                <th class="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="chatsTableBody" class="divide-y divide-slate-800/60 text-slate-300">
-              <tr><td colspan="6" class="p-6 text-center text-slate-500">Loading chats directory...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 3: BROADCAST STUDIO (NEW) -->
-    <section id="tab-broadcast" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="max-w-3xl mx-auto p-6 md:p-8 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-6">
-        <div>
-          <h3 class="font-bold text-lg text-white flex items-center gap-2">
-            <i data-lucide="megaphone" class="w-5 h-5 text-amber-400"></i>
-            Broadcast Announcement Studio
-          </h3>
-          <p class="text-xs text-slate-400">Send an official announcement to all group chats or private contacts safely with rate-limit pacing</p>
-        </div>
-
-        <div class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1.5">Target Audience</label>
-            <div class="grid grid-cols-3 gap-3">
-              <label class="p-3 rounded-xl bg-dark-700 border border-slate-700 hover:border-amber-500/50 cursor-pointer flex items-center gap-2.5 transition">
-                <input type="radio" name="broadcastTarget" value="groups" checked class="text-amber-500 focus:ring-0">
-                <span class="font-semibold text-white">All Groups</span>
-              </label>
-              <label class="p-3 rounded-xl bg-dark-700 border border-slate-700 hover:border-amber-500/50 cursor-pointer flex items-center gap-2.5 transition">
-                <input type="radio" name="broadcastTarget" value="dms" class="text-amber-500 focus:ring-0">
-                <span class="font-semibold text-white">All DMs</span>
-              </label>
-              <label class="p-3 rounded-xl bg-dark-700 border border-slate-700 hover:border-amber-500/50 cursor-pointer flex items-center gap-2.5 transition">
-                <input type="radio" name="broadcastTarget" value="all" class="text-amber-500 focus:ring-0">
-                <span class="font-semibold text-white">Everyone</span>
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1.5">Announcement Content</label>
-            <textarea id="broadcastTextInput" rows="6" placeholder="Write your announcement here..." class="w-full px-3.5 py-3 rounded-xl bg-dark-700 border border-slate-700 text-white font-sans focus:outline-none focus:border-amber-500 leading-relaxed"></textarea>
-            <p class="text-[11px] text-slate-500 mt-1">Automatically tagged with 📢 *[BROADCAST ANNOUNCEMENT]* header.</p>
-          </div>
-
-          <div id="broadcastProgressBox" class="hidden p-4 rounded-xl bg-dark-700/60 border border-amber-500/30 text-amber-300 space-y-2">
-            <div class="flex justify-between font-semibold">
-              <span>Broadcasting in progress...</span>
-              <span id="broadcastProgressText">0%</span>
-            </div>
-            <div class="w-full h-2 bg-dark-900 rounded-full overflow-hidden">
-              <div id="broadcastProgressBar" class="h-full bg-amber-500 w-0 transition-all duration-300"></div>
-            </div>
-          </div>
-
-          <button id="sendBroadcastBtn" class="w-full py-3 rounded-xl font-semibold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
-            <i data-lucide="send" class="w-4 h-4"></i>
-            Launch Broadcast
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 4: MODERATION & MUTES (NEW) -->
-    <section id="tab-moderation" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-lg text-white flex items-center gap-2">
-            <i data-lucide="shield-alert" class="w-5 h-5 text-red-400"></i>
-            Moderation & Muted Users Manager
-          </h3>
-          <p class="text-xs text-slate-400">Auto-delete spam from muted users across groups</p>
-        </div>
-        <button id="openMuteModalBtn" class="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-semibold text-xs flex items-center gap-2 self-start">
-          <i data-lucide="user-x" class="w-4 h-4"></i>
-          Mute User
-        </button>
-      </div>
-
-      <!-- Muted Users Table -->
-      <div class="rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-dark-700/40 text-slate-400 uppercase font-semibold border-b border-slate-800">
-              <tr>
-                <th class="p-4">Muted User</th>
-                <th class="p-4">Phone / Sender ID</th>
-                <th class="p-4">Target Chat</th>
-                <th class="p-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody id="mutedUsersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
-              <tr><td colspan="4" class="p-6 text-center text-slate-500">No muted users currently registered.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 5: WELCOMER STUDIO (NEW) -->
-    <section id="tab-welcome" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div>
-        <h3 class="font-bold text-lg text-white flex items-center gap-2">
-          <i data-lucide="hand-metal" class="w-5 h-5 text-teal-400"></i>
-          Group Welcomer Studio
-        </h3>
-        <p class="text-xs text-slate-400">Configure automated greeting banners and welcome messages for new members</p>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Welcomer Editor Form -->
-        <div class="lg:col-span-1 p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-          <h4 class="font-bold text-white text-sm">Configure Group Welcome</h4>
-          
-          <div class="space-y-3 text-xs">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Select Group Chat</label>
-              <select id="welcomeGroupSelect" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white focus:outline-none focus:border-teal-500">
-                <option value="">Select a group...</option>
-              </select>
-            </div>
-
-            <div class="flex items-center justify-between p-3 rounded-xl bg-dark-700/50 border border-slate-700">
-              <span class="font-semibold text-slate-300">Welcome Enabled</span>
-              <input type="checkbox" id="welcomeToggle" class="w-4 h-4 rounded text-teal-500 focus:ring-0">
-            </div>
-
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Welcome Text Template</label>
-              <textarea id="welcomeTextInput" rows="4" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white focus:outline-none focus:border-teal-500" placeholder="👋 Welcome @user to {group}! Enjoy your stay."></textarea>
-              <p class="text-[11px] text-slate-500 mt-1">Tags: <code class="text-teal-400">@user</code>, <code class="text-teal-400">{group}</code>, <code class="text-teal-400">{desc}</code></p>
-            </div>
-
-            <button id="saveWelcomeBtn" class="w-full py-2.5 rounded-xl font-semibold bg-teal-600 hover:bg-teal-500 text-white transition flex items-center justify-center gap-2">
-              <i data-lucide="save" class="w-4 h-4"></i>
-              Save Group Welcome
-            </button>
-          </div>
-        </div>
-
-        <!-- Configured Groups List -->
-        <div class="lg:col-span-2 p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-          <h4 class="font-bold text-white text-sm">Active Welcome Configurations</h4>
-          <div id="welcomeCardsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <p class="text-slate-500 col-span-full text-center py-6">No custom welcome messages configured.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 6: AI PERSONAS & INTERACTIVE TESTER (NEW TESTER) -->
-    <section id="tab-personas" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-lg text-white">AI Characters & Live Tester</h3>
-          <p class="text-xs text-slate-400">15+ pre-loaded personas with dynamic sticker and RVC voice binding</p>
-        </div>
-        <button id="openNewPersonaModalBtn" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs flex items-center gap-2 self-start shadow-lg shadow-brand-500/20">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-          Create Persona
-        </button>
-      </div>
-
-      <!-- Live Test Sandbox Box (NEW FEATURE) -->
-      <div class="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/40 via-dark-800/60 to-purple-950/30 border border-indigo-500/30 backdrop-blur space-y-4">
-        <div class="flex items-center justify-between">
-          <h4 class="font-bold text-white text-sm flex items-center gap-2">
-            <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
-            Live Interactive AI Persona Playground
-          </h4>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-semibold">Gemini 2.5 Flash</span>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Select Persona</label>
-            <select id="testPersonaSelect" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white text-xs">
-              <option value="zero2">Zero Two (!zero2)</option>
-              <option value="kurumi">Kurumi (!kurumi)</option>
-              <option value="makima">Makima (!makima)</option>
-              <option value="mai">Mai Sakurajima (!mai)</option>
-              <option value="ganyu">Ganyu (!ganyu)</option>
-              <option value="johan">Johan Liebert (!johan)</option>
-              <option value="light">Light Yagami (!light)</option>
-              <option value="gojo">Gojo Satoru (!gojo)</option>
-              <option value="dazai">Osamu Dazai (!dazai)</option>
-              <option value="sukuna">Sukuna (!sukuna)</option>
-            </select>
-          </div>
-          <div class="md:col-span-2 flex gap-2 items-end">
-            <div class="flex-1">
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Test Message / Question</label>
-              <input type="text" id="testPersonaPrompt" placeholder="Type a message to test this persona's response..." class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white text-xs">
-            </div>
-            <button id="sendPersonaTestBtn" class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition">
-              <i data-lucide="play" class="w-3.5 h-3.5"></i> Test
-            </button>
-          </div>
-        </div>
-
-        <!-- Live Response Output Box -->
-        <div id="testPersonaOutputBox" class="hidden p-4 rounded-xl bg-dark-900/80 border border-purple-500/20 text-xs space-y-2">
-          <div class="flex items-center justify-between text-slate-400">
-            <span id="testOutputPersonaName" class="font-bold text-white">Zero Two</span>
-            <span id="testOutputMoodBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-purple-300">[MOOD: happy]</span>
-          </div>
-          <p id="testOutputAnswer" class="text-slate-200 leading-relaxed font-sans"></p>
-        </div>
-      </div>
-
-      <!-- Personas Grid -->
-      <div id="personasListGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="p-6 text-center text-slate-500 col-span-full">Loading personas...</div>
-      </div>
-    </section>
-
-    <!-- TAB 7: AUTO-REPLY / AWAY MANAGER -->
-    <section id="tab-autoreply" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Left: Auto-Reply Settings Form -->
-        <div class="lg:col-span-1 p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-5">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-white text-base">Away Mode Settings</h3>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="autoReplyToggle" class="sr-only peer">
-              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-            </label>
-          </div>
-
-          <div class="space-y-4 text-xs">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1.5">Operating Mode</label>
-              <select id="autoReplyModeSelect" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white focus:outline-none focus:border-emerald-500">
-                <option value="global">Global (All Private DMs)</option>
-                <option value="target">Target (Specific Contacts Only)</option>
-                <option value="keyword">Keyword (Trigger Match)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1.5">Default Away Message</label>
-              <textarea id="autoReplyMessageInput" rows="4" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 font-sans" placeholder="I am currently away..."></textarea>
-            </div>
-
-            <button id="saveAutoReplyBtn" class="w-full py-2.5 px-4 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2">
-              <i data-lucide="save" class="w-4 h-4"></i>
-              Save Settings
-            </button>
-          </div>
-        </div>
-
-        <!-- Middle & Right: Triggers & Visitor Notes -->
-        <div class="lg:col-span-2 space-y-6">
-          
-          <!-- Triggers & Target Lists -->
-          <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-            <h4 class="font-bold text-white text-sm">Keyword Triggers & Specific Targets</h4>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <!-- Add Trigger -->
-              <div class="space-y-2 text-xs">
-                <span class="font-semibold text-slate-300">Add Keyword Trigger</span>
-                <input type="text" id="triggerKeywordInput" placeholder="e.g. pricing, help" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white">
-                <input type="text" id="triggerReplyInput" placeholder="Reply message" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white">
-                <button id="addTriggerBtn" class="w-full py-2 rounded-xl bg-dark-700 hover:bg-dark-600 text-slate-200 font-medium">Add Trigger</button>
-              </div>
-
-              <!-- Add Target JID -->
-              <div class="space-y-2 text-xs">
-                <span class="font-semibold text-slate-300">Add Target Phone Number / JID</span>
-                <input type="text" id="targetJidInput" placeholder="e.g. 1234567890" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white">
-                <div class="h-[38px]"></div>
-                <button id="addTargetBtn" class="w-full py-2 rounded-xl bg-dark-700 hover:bg-dark-600 text-slate-200 font-medium">Add Target</button>
+          <!-- Go Runtime Diagnostics -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-cpu" />
+                </svg> Go Runtime Telemetry
               </div>
             </div>
-
-            <!-- Active Triggers List -->
-            <div class="mt-4 pt-4 border-t border-slate-800/60">
-              <h5 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Active Triggers</h5>
-              <div id="triggersListContainer" class="flex flex-wrap gap-2 text-xs">
-                <span class="text-slate-500">No triggers configured</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Visitor Notes Received While Away -->
-          <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-            <div class="flex items-center justify-between">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
               <div>
-                <h4 class="font-bold text-white text-sm">Visitor Messages Inbox</h4>
-                <p class="text-xs text-slate-400">Notes left by users while Away Mode was active</p>
+                <span style="color: var(--text-muted);">OS / Arch:</span>
+                <div style="font-weight: 600; font-family: var(--font-mono);" id="rtPlatform">-</div>
               </div>
-              <button id="flushNotesBtn" class="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-semibold transition">
-                Flush / Clear Inbox
+              <div>
+                <span style="color: var(--text-muted);">Compiler:</span>
+                <div style="font-weight: 600; font-family: var(--font-mono);" id="rtGoVersion">-</div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">CPU Cores:</span>
+                <div style="font-weight: 600; font-family: var(--font-mono);" id="rtCpuCount">-</div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">Garbage Collections:</span>
+                <div style="font-weight: 600; font-family: var(--font-mono);" id="rtNumGC">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           2. Audit Vault Tab (Deleted Messages)
+            -->
+      <section class="tab-view" id="view-audit">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-shield" />
+              </svg> Intercepted Deleted Messages
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-sm" id="btnRefreshAudit">Refresh</button>
+              <button class="btn btn-sm btn-danger" id="btnClearAudit">Flush History</button>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+            Messages revoked or unsent in chats with anti-delete protection enabled are archived here with original
+            media attachments.
+          </p>
+
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Chat / Sender</th>
+                  <th>Message Type</th>
+                  <th>Content / Media</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           3. Chats & Contacts Tab
+            -->
+      <section class="tab-view" id="view-chats">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-users" />
+              </svg> Known Chats & Contacts
+            </div>
+            <div style="display: flex; gap: 8px; width: 300px;">
+              <input type="text" class="input" id="searchChatsInput" placeholder="Filter by name, phone or JID...">
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name / Subject</th>
+                  <th>JID / Phone</th>
+                  <th>Chat Type</th>
+                  <th>Anti-Delete</th>
+                  <th>Features</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="chatsTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           4. Moderation & Mutes Tab
+            -->
+      <section class="tab-view" id="view-moderation">
+        <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+          <!-- Muted Users Card -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-slash" />
+                </svg> Muted Users Directory
+              </div>
+              <button class="btn btn-sm btn-danger" id="btnOpenMuteModal">Mute User</button>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+              Messages from muted users are automatically intercepted and deleted when sent in groups where bot is an
+              administrator.
+            </p>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User JID / Phone</th>
+                    <th>Reason / Scope</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="mutesTableBody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Welcome Greetings Card -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-message" />
+                </svg> Group Welcome Studio
+              </div>
+              <span class="badge badge-neutral" id="welcomeStatusBadge">Status: Disabled</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div>
+                <div class="form-group">
+                  <label class="form-label">Welcome Message Template</label>
+                  <textarea class="textarea" id="welcomeTemplateInput" rows="5"
+                    placeholder="Welcome @user to @group!"></textarea>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-sm btn-primary" id="btnSaveWelcome">Save Template</button>
+                  <button class="btn btn-sm" id="btnToggleWelcome">Toggle Enabled</button>
+                </div>
+              </div>
+              <div>
+                <span class="form-label">Supported Template Placeholders:</span>
+                <ul
+                  style="font-size: 12px; color: var(--text-secondary); margin-left: 16px; margin-top: 6px; line-height: 1.8;">
+                  <li><code>@user</code> : Mention the joining participant</li>
+                  <li><code>@group</code> : Name of the group chat</li>
+                  <li><code>@desc</code> : Group description snippet</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           5. AI Persona Studio & Multi-Provider Engine Tab
+            -->
+      <section class="tab-view" id="view-personas">
+        <!-- Row 1: Global AI Provider Engine & Per-Chat AI Overrides -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <!-- Global Provider Engine -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-sparkles" />
+                </svg> Global AI Engine
+              </div>
+              <span class="badge badge-primary" id="aiGlobalActiveBadge">GEMINI</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+              Select global provider for uncensored roleplay (OpenRouter/Venice), ultra-fast inference (Groq), or local
+              Ollama.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Active Provider Mode</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" id="aiProviderGrid">
+                <!-- Dynamically populated provider selection cards -->
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+              <label class="form-label">Active Model</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" class="input" id="aiGlobalModelInput"
+                  placeholder="Model name (e.g. dolphin-mistral-24b)">
+                <button class="btn btn-primary" id="btnSaveGlobalAI">Apply</button>
+              </div>
+              <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;" id="aiModelPresets">
+                <!-- Preset model buttons -->
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+              <label class="form-label">Base @Prism Persona Style</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" id="aiStyleGrid">
+                <!-- Dynamically populated style selector -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-Chat AI Provider Overrides -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-users" />
+                </svg> Per-Chat AI Providers
+              </div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+              Run different AI models & providers in different chats (e.g. Uncensored Dolphin in private DMs, Llama in
+              groups).
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div class="form-group">
+                <label class="form-label">Select Chat / Group</label>
+                <select class="select" id="aiOverrideChatSelect">
+                  <option value="">Select a chat...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Chat AI Provider</label>
+                <select class="select" id="aiOverrideProviderSelect">
+                  <option value="gemini">Google Gemini (Standard)</option>
+                  <option value="groq">GroqCloud (Ultra Fast)</option>
+                  <option value="openrouter">OpenRouter (Uncensored)</option>
+                  <option value="ollama">Ollama (Local / Free)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Persona Style</label>
+                <select class="select" id="aiOverrideStyleSelect">
+                  <option value="inherit">Inherit Global</option>
+                  <option value="formal">Formal (Default)</option>
+                  <option value="genz">Gen-Z (Savage)</option>
+                  <option value="self">Self (User Persona)</option>
+                </select>
+              </div>
+            </div>
+
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label">Custom Model (Optional)</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" class="input" id="aiOverrideModelInput"
+                  placeholder="Leave empty for provider default">
+                <button class="btn btn-primary" id="btnSaveChatOverride">Set Chat Mode</button>
+              </div>
+            </div>
+
+            <label class="form-label">Active Chat Overrides</label>
+            <div style="max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"
+              id="aiChatOverridesContainer">
+              <!-- Dynamically populated list of chat overrides -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Available Personas & Persona Test Playground -->
+        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px;">
+          <!-- Persona List -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-sparkles" />
+                </svg> Available AI Personas
+              </div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+              Triggerable in chats via their command prefix (e.g. <code>!zero2</code>, <code>!sukuna</code>).
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px;" id="personasListContainer">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Test Playground -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-terminal" />
+                </svg> Persona Test Playground
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Select Persona</label>
+              <select class="select" id="playgroundPersonaSelect">
+                <option value="zero2">Zero Two</option>
+                <option value="kurumi">Kurumi Tokisaki</option>
+                <option value="sukuna">Ryomen Sukuna</option>
+                <option value="makima">Makima</option>
+                <option value="mai">Mai Sakurajima</option>
+                <option value="dazai">Osamu Dazai</option>
+                <option value="gojo">Satoru Gojo</option>
+                <option value="l">L Lawliet</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prompt Message</label>
+              <input type="text" class="input" id="playgroundPromptInput"
+                placeholder="What are you thinking right now?">
+            </div>
+            <button class="btn btn-primary" id="btnTestPersona">Generate Response</button>
+
+            <div style="margin-top: 16px;">
+              <span class="form-label">Output Preview:</span>
+              <div id="playgroundOutput"
+                style="background: var(--bg-inset); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 12px; font-size: 13px; min-height: 80px; white-space: pre-wrap; color: var(--text-primary);">
+                Select a character and click generate to test dialogue.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           6. Auto-Reply Tab
+            -->
+      <section class="tab-view" id="view-autoreply">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <!-- Settings & Mode -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-repeat" />
+                </svg> Auto-Reply Mode
+              </div>
+              <span class="badge badge-neutral" id="badgeAutoReplyState">State: Disabled</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Operating Mode</label>
+              <select class="select" id="selectAutoReplyMode">
+                <option value="keyword">Keyword Triggers Only</option>
+                <option value="target">Target Specific Contacts</option>
+                <option value="global">Global (Reply to all DMs)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Global Default Reply</label>
+              <textarea class="textarea" id="autoReplyDefaultText" rows="3"
+                placeholder="I am currently away. Leave a message!"></textarea>
+            </div>
+            <button class="btn btn-primary" id="btnSaveAutoReply">Save Settings</button>
+          </div>
+
+          <!-- Keyword Triggers Table -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Keyword Triggers</div>
+              <button class="btn btn-sm btn-primary" id="btnAddTriggerBtn">Add Trigger</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Keyword</th>
+                    <th>Automated Response</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="triggersTableBody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           7. Reminders Tab
+            -->
+      <section class="tab-view" id="view-reminders">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-clock" />
+              </svg> Active Scheduled Reminders
+            </div>
+            <button class="btn btn-sm btn-primary" id="btnOpenReminderModal">Create Reminder</button>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Target Chat</th>
+                  <th>Scheduled Due</th>
+                  <th>Reminder Text</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="remindersTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           8. Notes Tab
+            -->
+      <section class="tab-view" id="view-notes">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-folder" />
+              </svg> Hierarchical Notes Directory
+            </div>
+            <span class="badge badge-neutral" id="notesFileBadge">File: notes.json</span>
+          </div>
+          <div id="notesTreeContainer"
+            style="padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.8;">
+            <!-- Tree loaded dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           Reports & Deadlines Tab
+            -->
+      <section class="tab-view" id="view-reports">
+        <!-- Top Status & Submissions Controls -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+          <!-- Daily Achievements & AI Summarizer -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-sparkles" />
+                </svg> Daily Status Reports & Midnight AI Summary
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="date" class="input" id="reportDatePicker"
+                  style="padding: 4px 8px; font-size: 12px; width: 140px;">
+                <button class="btn btn-sm btn-primary" id="btnGenerateReportSummary">Generate AI Summary</button>
+              </div>
+            </div>
+
+            <!-- AI Summary Card Box -->
+            <div
+              style="margin-bottom: 16px; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-muted); border-radius: var(--radius-sm);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-primary);">AI
+                  Executive Summary</span>
+                <span id="reportSummaryStatusBadge" class="badge badge-neutral">Auto-posts at 00:00</span>
+              </div>
+              <div id="reportSummaryContent"
+                style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; max-height: 220px; overflow-y: auto; color: var(--text-primary);">
+                Select a date and click "Generate AI Summary", or wait for the automatic midnight broadcast.
+              </div>
+            </div>
+
+            <!-- Submissions Table -->
+            <div style="font-weight: 600; font-size: 12px; margin-bottom: 8px; color: var(--text-secondary);">
+              Submissions for Selected Date (<span id="reportsCountBadge">0</span>)</div>
+            <div class="table-wrapper" style="max-height: 240px; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Participant</th>
+                    <th>Time</th>
+                    <th>Achievement / Report</th>
+                  </tr>
+                </thead>
+                <tbody id="reportsTableBody">
+                  <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-muted);">No reports logged yet for this
+                      date.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Target Groups & Gamified Streaks Sidebar -->
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+
+            <!-- Target Destination Groups Card -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">Midnight Broadcast Groups</div>
+              </div>
+              <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">
+                Groups configured to automatically receive the synthesized AI summary daily at 00:00.
+              </p>
+              <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <input type="text" class="input" id="newReportGroupInput" placeholder="Group JID (e.g. 120363...)"
+                  style="font-size: 12px;">
+                <button class="btn btn-sm btn-primary" id="btnAddReportGroupBtn">Add</button>
+              </div>
+              <div id="reportGroupsList"
+                style="display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto;">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Quick Gamification Leaderboard Preview -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">Top Streaks & Points</div>
+              </div>
+              <div class="table-wrapper" style="max-height: 200px; overflow-y: auto;">
+                <table class="data-table" style="font-size: 11px;">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>User</th>
+                      <th>Points</th>
+                      <th>Streak</th>
+                    </tr>
+                  </thead>
+                  <tbody id="leaderboardMiniBody">
+                    <!-- Dynamically populated -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Group PFP Deadline Countdown System -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-clock" />
+              </svg> Group Profile Picture Countdown Updater
+            </div>
+            <span class="badge badge-accent">Vector Font Render</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; padding-top: 8px;">
+
+            <!-- Deadline Configuration Form -->
+            <div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">
+                Automatically renders a high-aesthetic 640x640 profile picture with remaining days countdown and
+                refreshes the WhatsApp group photo every midnight at 00:00.
+              </p>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="form-group">
+                  <label class="form-label">Target Group</label>
+                  <input type="text" class="input" id="pfpGroupJidInput" placeholder="120363xxxx@g.us">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Target Due Date</label>
+                  <input type="date" class="input" id="pfpDateInput">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">Event / Goal Title</label>
+                <input type="text" class="input" id="pfpTitleInput" placeholder="e.g. Final Exams, Product Launch">
+              </div>
+
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn btn-primary" id="btnSaveDeadline">Save & Update Group Icon Now</button>
+                <button class="btn" id="btnRefreshPreview">Refresh Live Preview</button>
+              </div>
+
+              <!-- Active Deadlines Table -->
+              <div style="margin-top: 24px;">
+                <div style="font-weight: 600; font-size: 12px; margin-bottom: 8px; color: var(--text-secondary);">Active
+                  Group Countdowns</div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Group JID</th>
+                        <th>Event Title</th>
+                        <th>Target Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="deadlinesTableBody">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Aesthetic PFP Preview Box -->
+            <div
+              style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-surface); padding: 16px; border: 1px solid var(--border-muted); border-radius: var(--radius-md);">
+              <span
+                style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 10px;">Live
+                PFP Preview (640x640)</span>
+              <div
+                style="width: 260px; height: 260px; border-radius: 50%; overflow: hidden; border: 3px solid var(--accent-primary); box-shadow: 0 8px 24px rgba(0,0,0,0.3); background: #0B0F19; display: flex; align-items: center; justify-content: center;">
+                <img id="pfpLivePreviewImg" src="/api/deadlines/preview?title=Goal+Deadline" alt="PFP Preview"
+                  style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <span style="font-size: 10px; color: var(--text-muted); margin-top: 10px; text-align: center;">Simulated
+                circular WhatsApp avatar crop</span>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           9. Storage Tab
+            -->
+      <section class="tab-view" id="view-storage">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-hard-drive" />
+                </svg> Disk Utilization
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+              <div
+                style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-muted); padding-bottom: 6px;">
+                <span>Media & Downloads (data/media):</span>
+                <strong id="storageMediaSize">0 MB</strong>
+              </div>
+              <div
+                style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-muted); padding-bottom: 6px;">
+                <span>Database (prismbot.db):</span>
+                <strong id="storageDbSize">0 MB</strong>
+              </div>
+              <div
+                style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-muted); padding-bottom: 6px;">
+                <span>Notes Storage (notes.json):</span>
+                <strong id="storageNotesSize">0 KB</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Audit Logs (deleted_messages.json):</span>
+                <strong id="storageAuditSize">0 KB</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Storage Cleaners</div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">
+              Clean temporary downloaded audio, video, and stickers to release disk capacity.
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-danger" id="btnCleanMedia">Prune Temp Media</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           10. MeowCaller & Song Party VoIP Tab
+            -->
+      <section class="tab-view" id="view-meowcaller">
+        <!-- Master VoIP Activation Card -->
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-music" />
+              </svg>
+              <span>MeowCaller VoIP &amp; Song Party Engine</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-neutral" id="callerStatusBadge">OFF (Safe Mode)</span>
+              <span class="badge badge-warning" id="callerTimerRemainingBadge" style="display: none;"><svg
+                  class="icon-inline">
+                  <use href="#icon-clock" />
+                </svg> <span id="callerTimerRemainingText">00:00</span> remaining</span>
+            </div>
+          </div>
+
+          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+            MeowCaller provides native WhatsApp Web VoIP voice calling powered by pure Go and the proprietary MLOW audio
+            codec.
+            <strong style="color: var(--text-primary);">It is off by default to prevent unsolicited calls</strong>.
+            You can temporarily open it with an auto-expiration window to host live WhatsApp Song Parties for your
+            groups or friends.
+          </div>
+
+          <!-- Controls Bar -->
+          <div
+            style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; background: var(--bg-surface); border: 1px solid var(--border-muted); border-radius: var(--radius-md);">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+              <button class="btn btn-primary" id="btnToggleCallerMaster"
+                style="display: flex; align-items: center; gap: 6px;">
+                <span id="callerMasterBtnIcon"><svg class="icon-inline">
+                    <use href="#icon-zap" />
+                  </svg></span>
+                <span id="callerMasterBtnText">Enable MeowCaller</span>
+              </button>
+
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;" id="callerDurationPresets">
+                <span style="font-size: 11px; color: var(--text-secondary); margin-right: 4px;">Temporary Window:</span>
+                <button class="duration-pill" data-minutes="15">15 min</button>
+                <button class="duration-pill active" data-minutes="30">30 min</button>
+                <button class="duration-pill" data-minutes="60">1 hr</button>
+                <button class="duration-pill" data-minutes="120">2 hr</button>
+                <button class="duration-pill" data-minutes="0">Until Disabled</button>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label
+                style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: var(--text-primary);">
+                <input type="checkbox" id="checkCallerAutoAccept" style="cursor: pointer;">
+                <span>Auto-Answer incoming calls for Song Party</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2-Column Grid: Call Console & Song Party DJ Booth -->
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 20px;">
+
+          <!-- Column 1: Live Voice Call Console -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-phone" />
+                </svg>
+                <span>Voice Call Console</span>
+              </div>
+              <span class="badge badge-neutral" id="callerCallPhaseBadge">Idle</span>
+            </div>
+
+            <!-- Incoming Ringing Call Alert Card (visible only when incoming call is pending) -->
+            <div id="callerIncomingAlert"
+              style="display: none; background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="badge badge-warning"
+                  style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                  <span class="live-dot active" style="background: #eab308;"></span>
+                  INCOMING CALL RINGING
+                </span>
+                <span id="callerIncomingDuration"
+                  style="font-size: 11px; font-family: var(--font-mono); color: #facc15;">00:00</span>
+              </div>
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 10px;"
+                id="callerIncomingPeer">Unknown Caller</div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-success" id="btnCallerAnswer" style="flex: 1;">
+                  <svg style="width: 12px; height: 12px;">
+                    <use href="#icon-phone" />
+                  </svg>
+                  <span>Answer Call</span>
+                </button>
+                <button class="btn btn-sm btn-danger" id="btnCallerReject" style="flex: 1;">
+                  <span>Reject Call</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Active Call Telemetry Card -->
+            <div
+              style="background: var(--bg-surface); border: 1px solid var(--border-muted); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span
+                  style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">Active
+                  Session</span>
+                <span id="callerCallDuration"
+                  style="font-size: 12px; font-family: var(--font-mono); color: var(--accent-text);">00:00</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div
+                  style="width: 38px; height: 38px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 16px;"
+                  id="callerAvatarIcon">
+                  <svg class="icon-inline" style="width: 18px; height: 18px;">
+                    <use href="#icon-phone" />
+                  </svg>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div
+                    style="font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                    id="callerCallPeer">No Call in Progress</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);" id="callerCallSubtext">Pure-Go VoIP Stack
+                    (MLOW Codec)</div>
+                </div>
+              </div>
+              <div id="callerLiveAudioNotice"
+                style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="font-size: 11px; color: #38bdf8; font-weight: 500;" id="callerLiveAudioNoticeText">Call is
+                  active. Audio monitor is ready.</span>
+                <button class="btn btn-sm btn-primary" id="btnQuickStartListening"
+                  style="padding: 2px 8px; font-size: 11px;">Start Audio</button>
+              </div>
+            </div>
+
+            <!-- Dial Form -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Recipient Phone Number or Group JID</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" class="input" id="callerDialTarget"
+                    placeholder="e.g. +1234567890 or 12345-67890@g.us" list="callerRecentRecipients">
+                  <datalist id="callerRecentRecipients"></datalist>
+                </div>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+                  Accepts phone numbers (with country code), individual JIDs, or group @g.us JIDs.
+                </span>
+              </div>
+
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" id="btnCallerDial"
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                  <svg style="width: 13px; height: 13px;">
+                    <use href="#icon-phone" />
+                  </svg>
+                  <span>Place Audio Call</span>
+                </button>
+                <button class="btn btn-danger" id="btnCallerHangup"
+                  style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                  <span>Hang Up</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Song Party DJ Console -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg>
+                  <use href="#icon-music" />
+                </svg>
+                <span>Song Party DJ Deck</span>
+              </div>
+              <!-- Animated Equalizer Bars -->
+              <div class="audio-visualizer" id="partyVisualizer">
+                <div class="audio-wave-bar"></div>
+                <div class="audio-wave-bar"></div>
+                <div class="audio-wave-bar"></div>
+                <div class="audio-wave-bar"></div>
+                <div class="audio-wave-bar"></div>
+              </div>
+            </div>
+
+            <!-- Now Playing Deck -->
+            <div
+              style="background: var(--bg-surface); border: 1px solid var(--border-muted); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span
+                  style="font-size: 10px; font-weight: 700; color: var(--accent-text); text-transform: uppercase; letter-spacing: 0.5px;">NOW
+                  PLAYING</span>
+                <span class="badge" id="partyPlaybackBadge" style="font-size: 10px;">IDLE</span>
+              </div>
+              <div
+                style="font-size: 15px; font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                id="partyNowPlayingTitle">
+                No Track Playing
+              </div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px;"
+                id="partyNowPlayingRequester">
+                Add a song below or send <code>!party start &lt;song&gt;</code> in WhatsApp
+              </div>
+
+              <!-- Playback DJ Controls -->
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-sm" id="btnPartyPauseResume" title="Pause or Resume Playback">
+                  <span id="partyPauseResumeIcon"><svg class="icon-inline">
+                      <use href="#icon-pause" />
+                    </svg></span> <span id="partyPauseResumeText">Pause</span>
+                </button>
+                <button class="btn btn-sm" id="btnPartySkip" title="Skip to next queued song">
+                  <svg class="icon-inline">
+                    <use href="#icon-skip" />
+                  </svg> <span>Skip</span>
+                </button>
+                <button class="btn btn-sm btn-danger" id="btnPartyStop" title="Stop song party and clear playlist">
+                  <svg class="icon-inline">
+                    <use href="#icon-square" />
+                  </svg> <span>Stop Party</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Add Track Form -->
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Add Track to Party (YouTube Search or Direct URL)</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" class="input" id="partySongInput"
+                    placeholder="e.g. Blinding Lights, Starboy, or YouTube URL">
+                  <button class="btn btn-primary" id="btnPartyQueueSong" style="white-space: nowrap;">
+                    <span>Queue Song</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Realtime AI Voice Chatbot (Groq Whisper STT) -->
+        <div class="card voicebot-deck" style="margin-bottom: 20px;">
+          <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+            <div class="card-title" style="display: flex; align-items: center; gap: 10px;">
+              <span class="live-dot" id="voiceBotLiveDot"></span>
+              <svg style="width: 18px; height: 18px; color: var(--success);">
+                <use href="#icon-sparkles" />
+              </svg>
+              <span>Realtime AI Voice Chatbot (Groq Whisper STT)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span class="badge badge-neutral" id="voiceBotStatusBadge">STANDBY</span>
+              <span class="badge badge-success" id="voiceBotLatencyBadge" style="display: none;">0ms Latency</span>
+              <button class="btn btn-sm btn-primary" id="btnToggleVoiceBot">
+                <span id="voiceBotBtnIcon"><svg class="icon-inline">
+                    <use href="#icon-mic" />
+                  </svg></span>
+                <span id="voiceBotBtnText">Enable VoiceBot</span>
               </button>
             </div>
-            
-            <div id="visitorNotesContainer" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-              <p class="text-xs text-slate-500 py-4 text-center">No visitor notes logged.</p>
+          </div>
+
+          <div
+            style="padding: 0 16px 14px; border-bottom: 1px solid var(--border-muted); font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+            Sub-400ms real-time conversational voice agent. Transcribes caller speech directly via <code
+              style="color: #34d399;">Groq Whisper</code> (<code style="color: #38bdf8;">whisper-large-v3-turbo</code>),
+            generates AI conversational replies, and responds live with instant barge-in speech interruption.
+          </div>
+
+          <!-- 2-Column Grid: Config & Live Conversation Monitor -->
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; padding: 16px;">
+            <!-- Column 1: Engine Settings -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="margin-bottom: 4px;">Speech-to-Text (STT) Engine</label>
+                <div
+                  style="display: flex; gap: 10px; align-items: center; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-muted); border-radius: var(--radius-sm); padding: 8px 12px;">
+                  <svg class="icon-inline" style="width: 18px; height: 18px; color: var(--accent);">
+                    <use href="#icon-zap" />
+                  </svg>
+                  <div style="flex: 1;">
+                    <div style="font-weight: 600; font-size: 13px; color: #34d399;">Groq Whisper STT</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Model: whisper-large-v3-turbo (Sub-400ms
+                      Cloud ASR)</div>
+                  </div>
+                  <span class="badge badge-success" id="voiceBotWsConnBadge">Groq Whisper</span>
+                </div>
+                <input type="hidden" id="voiceBotServerUrl" value="groq-whisper">
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label">AI Character Voice</label>
+                  <select class="select" id="voiceBotVoiceSelect">
+                    <option value="elon_musk">Elon Musk</option>
+                    <option value="trump">Donald Trump</option>
+                    <option value="kurumi_en">Kurumi Tokisaki (EN)</option>
+                    <option value="zero2_jp">Zero Two (JP)</option>
+                    <option value="goku_en">Goku (EN)</option>
+                    <option value="modi">Narendra Modi</option>
+                    <option value="sharukh_khan">Shah Rukh Khan</option>
+                    <option value="amitabh_bachchan">Amitabh Bachchan</option>
+                    <option value="snoop_dog">Snoop Dogg</option>
+                    <option value="eminem">Eminem</option>
+                    <option value="paimon_en">Paimon (EN)</option>
+                  </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label">AI Response Model</label>
+                  <select class="select" id="voiceBotModelSelect">
+                    <option value="llama-3.3-70b-versatile" selected>Groq Llama 3.3 70B (Fastest)</option>
+                    <option value="llama-3.1-8b-instant">Groq Llama 3.1 8B Instant</option>
+                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label class="form-label" style="margin-bottom: 0;">Silence Threshold (Turn-taking)</label>
+                  <span style="font-size: 11px; font-family: var(--font-mono); color: var(--accent-text);"
+                    id="voiceBotSilenceVal">700 ms</span>
+                </div>
+                <input type="range" id="voiceBotSilenceSlider" min="400" max="1500" step="50" value="700"
+                  style="width: 100%; accent-color: #10b981;">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">In-Call Song Trigger Phrase</label>
+                <input type="text" class="input" id="voiceBotSongTriggerInput" placeholder="e.g. play song"
+                  value="play song" style="font-family: var(--font-mono); font-size: 12px;">
+                <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px;">Say "[trigger]
+                  [song]" to stream music during calls. Prevents accidental song triggers.</span>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Call Persona Prompt</label>
+                <textarea class="textarea" id="voiceBotPromptInput" rows="2"
+                  placeholder="Conversational voice call instructions...">You are a witty, helpful, ultra-concise real-time AI voice assistant on a live phone call. Keep responses direct, natural, conversational, and under 2 short sentences. Do not use bullet points, markdown formatting, emojis, or lists.</textarea>
+              </div>
+
+              <button class="btn btn-primary" id="btnSaveVoiceBotConfig"
+                style="align-self: flex-start; background: #10b981; border-color: #059669;">
+                <svg class="icon-inline">
+                  <use href="#icon-check" />
+                </svg> <span>Save VoiceBot Settings</span>
+              </button>
+            </div>
+
+            <!-- Column 2: Live Conversation Stream & Telemetry -->
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Caller Live Stream Transcription -->
+              <div
+                style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-md); padding: 12px; flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div
+                    style="font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <svg class="icon-inline">
+                      <use href="#icon-mic" />
+                    </svg> Live Caller Speech (100ms Chunks)
+                  </div>
+                  <span class="badge" id="voiceBotAsrStateBadge"
+                    style="font-size: 10px; background: rgba(56, 189, 248, 0.15); color: #38bdf8;">Awaiting
+                    Speech</span>
+                </div>
+                <div id="voiceBotLiveTranscript"
+                  style="font-size: 13px; color: var(--text-primary); min-height: 50px; font-style: italic; line-height: 1.5; padding: 6px; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-sm);">
+                  Speak into the WhatsApp call to see real-time streaming words...
+                </div>
+              </div>
+
+              <!-- AI Voice Output Response -->
+              <div
+                style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: var(--radius-md); padding: 12px; flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div
+                    style="font-size: 11px; font-weight: 700; color: #c084fc; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <svg class="icon-inline">
+                      <use href="#icon-volume" />
+                    </svg> AI Voice Response (Spoken into Call)
+                  </div>
+                  <span class="badge" id="voiceBotTtsStateBadge"
+                    style="font-size: 10px; background: rgba(168, 85, 247, 0.15); color: #c084fc;">Idle</span>
+                </div>
+                <div id="voiceBotLiveResponse"
+                  style="font-size: 13px; color: var(--text-primary); min-height: 50px; line-height: 1.5; padding: 6px; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-sm);">
+                  AI speech responses will appear here as they are spoken into the active call.
+                </div>
+              </div>
+
+              <!-- Telemetry Metrics Bar -->
+              <div
+                style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; font-size: 11px; text-align: center;">
+                <div
+                  style="padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-muted);">
+                  <div style="color: var(--text-muted); font-size: 10px;">LATENCY</div>
+                  <strong style="color: #34d399; font-family: var(--font-mono);" id="voiceBotMetricLatency">--
+                    ms</strong>
+                </div>
+                <div
+                  style="padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-muted);">
+                  <div style="color: var(--text-muted); font-size: 10px;">CALL CONTEXT</div>
+                  <strong style="color: #a78bfa; font-family: var(--font-mono);" id="voiceBotMetricContext">0
+                    turns</strong>
+                </div>
+                <div
+                  style="padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-muted);">
+                  <div style="color: var(--text-muted); font-size: 10px;">TOTAL</div>
+                  <strong style="font-family: var(--font-mono);" id="voiceBotMetricTurns">0</strong>
+                </div>
+                <div
+                  style="padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-muted);">
+                  <div style="color: var(--text-muted); font-size: 10px;">RTF</div>
+                  <strong style="color: #38bdf8; font-family: var(--font-mono);">&lt; 0.08</strong>
+                </div>
+                <div
+                  style="padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-muted);">
+                  <div style="color: var(--text-muted); font-size: 10px;">BARGE-IN</div>
+                  <strong style="color: #facc15; font-size: 10px;">Active</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 
+             Radio Station DJ & Live Broadcast Mic (Talk into Call & Duck Music)
+              -->
+        <div class="card meow-radio-station-card"
+          style="margin-bottom: 20px; border: 1px solid var(--border-color); background: var(--bg-surface);">
+          <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+            <div class="card-title" style="display: flex; align-items: center; gap: 10px;">
+              <span class="live-dot" id="radioLiveDot" style="background: #ef4444;"></span>
+              <svg style="width: 18px; height: 18px; color: #ef4444;">
+                <use href="#icon-message" />
+              </svg>
+              <span>Radio Station DJ &amp; Live Broadcast Mic</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span class="badge badge-neutral" id="radioOnAirBadge"
+                style="letter-spacing: 0.5px; font-weight: 700;">OFF AIR</span>
+              <span class="badge" id="radioSpeakingBadge"
+                style="display: none; background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">LIVE
+                TALKING</span>
+
+              <!-- PTT Button -->
+              <button class="btn btn-sm btn-outline" id="btnRadioPTT"
+                style="display: flex; align-items: center; gap: 6px; user-select: none;"
+                title="Hold to talk, release to release mic">
+                <svg class="icon-inline">
+                  <use href="#icon-radio" />
+                </svg>
+                <span id="radioPttText">Hold to Talk (PTT)</span>
+              </button>
+
+              <!-- Main On-Air Toggle Button -->
+              <button class="btn btn-sm btn-danger" id="btnRadioMicToggle"
+                style="display: flex; align-items: center; gap: 6px; font-weight: 600; padding: 6px 14px;">
+                <span id="radioMicBtnIcon"><svg class="icon-inline">
+                    <use href="#icon-mic" />
+                  </svg></span>
+                <span id="radioMicBtnText">GO ON AIR</span>
+              </button>
             </div>
           </div>
 
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 8: CHAT ACTIVITY & LEADERBOARDS (WITH REAL NAMES) -->
-    <section id="tab-analytics" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="font-bold text-lg text-white">Chat Analytics & Member Rankings</h3>
-          <p class="text-xs text-slate-400">Top contributors and message volumes identified by contact names</p>
-        </div>
-      </div>
-
-      <div id="analyticsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="p-8 text-center text-slate-500 col-span-full">Loading chat statistics...</div>
-      </div>
-    </section>
-
-    <!-- TAB 9: AUDIT VAULT (WITH REAL NAMES & LIGHTBOX) -->
-    <section id="tab-audit" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-lg text-white">Anti-Delete & View-Once Audit Vault</h3>
-          <p class="text-xs text-slate-400">Review messages and media with identified sender and group names</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Deleted Messages Log -->
-        <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-          <div class="flex items-center justify-between">
-            <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
-              Deleted Messages
-            </h4>
-            <div class="flex items-center gap-2">
-              <span id="deletedGroupsCountBadge" class="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 border border-slate-600/40">0 groups</span>
-              <span id="deletedMsgsCountBadge" class="text-xs font-mono px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">0 items</span>
+          <!-- Mode Selector & Live Status Description -->
+          <div
+            style="padding: 0 16px 14px; border-bottom: 1px solid var(--border-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span
+                style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">DJ
+                Mode:</span>
+              <div class="duration-pills" id="radioModeSelector">
+                <button class="duration-pill active" data-mode="ducking"
+                  title="Lowers music to background volume while speaking, then fades back up">
+                  <svg class="icon-inline">
+                    <use href="#icon-sliders" />
+                  </svg> Radio DJ (Auto-Ducking)
+                </button>
+                <button class="duration-pill" data-mode="mic_only"
+                  title="Mutes music completely while speaking so only your voice is heard">
+                  <svg class="icon-inline">
+                    <use href="#icon-volume-x" />
+                  </svg> Mic Only (Mute Music)
+                </button>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);"
+              id="radioShortcutHint">
+              Press [Space] to Push-to-Talk • 16kHz Opus Stream
             </div>
           </div>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <select id="deletedGroupFilter" class="flex-1 bg-dark-700/60 border border-slate-700 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-500 transition">
-              <option value="all">📁 All Groups & Chats</option>
-            </select>
-            <input type="text" id="deletedSearchInput" placeholder="Filter message text..." class="flex-1 bg-dark-700/60 border border-slate-700 text-slate-300 placeholder-slate-500 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-500 transition">
+
+          <!-- Sliders, Input Device Selector & VU Meter Grid -->
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 16px;">
+
+            <!-- Column 1: Levels & Hardware Input -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- Microphone Device Picker -->
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Microphone Input Device</label>
+                <select class="select" id="selectRadioMicDevice" style="font-size: 12px;">
+                  <option value="default">Default System Microphone</option>
+                </select>
+              </div>
+
+              <!-- Mic Gain Slider -->
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 11px; color: var(--text-secondary); width: 85px;">Mic Gain:</span>
+                <input type="range" id="sliderRadioMicGain" min="0.2" max="3.0" step="0.1" value="1.0"
+                  style="flex: 1; accent-color: #ef4444;">
+                <span
+                  style="font-size: 11px; font-family: var(--font-mono); color: var(--text-primary); width: 45px; text-align: right;"
+                  id="labelRadioMicGain">100%</span>
+              </div>
+
+              <!-- Ducking Level Slider -->
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 11px; color: var(--text-secondary); width: 85px;">Music Ducking:</span>
+                <input type="range" id="sliderRadioDuckLevel" min="0.0" max="0.5" step="0.05" value="0.15"
+                  style="flex: 1; accent-color: #f59e0b;">
+                <span
+                  style="font-size: 11px; font-family: var(--font-mono); color: var(--text-primary); width: 45px; text-align: right;"
+                  id="labelRadioDuckLevel">15%</span>
+              </div>
+            </div>
+
+            <!-- Column 2: Live VU Meter & Audio Activity -->
+            <div
+              style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <div
+                    style="font-size: 11px; font-weight: 700; color: #f87171; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <svg class="icon-inline">
+                      <use href="#icon-mic" />
+                    </svg> Microphone Signal Level (VU)
+                  </div>
+                  <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);"
+                    id="labelRadioMicDb">-60 dB</span>
+                </div>
+
+                <!-- Custom Multi-Segment VU Meter Bar -->
+                <div
+                  style="position: relative; height: 16px; background: rgba(0, 0, 0, 0.5); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-muted); margin-bottom: 8px;">
+                  <div id="radioVuBar"
+                    style="height: 100%; width: 0%; background: var(--success); transition: width 0.05s linear; border-radius: 3px;">
+                  </div>
+                </div>
+
+                <!-- Scale Markers -->
+                <div
+                  style="display: flex; justify-content: space-between; font-size: 9px; font-family: var(--font-mono); color: var(--text-muted); padding: 0 2px;">
+                  <span>-60dB</span>
+                  <span>-36dB</span>
+                  <span>-18dB</span>
+                  <span>-6dB</span>
+                  <span style="color: #ef4444;">0dB (Clip)</span>
+                </div>
+              </div>
+
+              <!-- Status line -->
+              <div
+                style="margin-top: 10px; font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+                <span id="radioStatusText">Microphone standby. Click "GO ON AIR" or hold PTT to speak.</span>
+                <span id="radioMixFeedback" style="font-size: 10px; color: #10b981; font-weight: 600;"></span>
+              </div>
+            </div>
+
           </div>
-          <div id="deletedMsgsList" class="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
-            <p class="text-xs text-slate-500 text-center py-6">No deleted messages recorded.</p>
-          </div>
         </div>
 
-        <!-- View-Once Media Log -->
-        <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-          <div class="flex items-center justify-between">
-            <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i>
-              View-Once Intercepts
-            </h4>
-            <span id="viewOnceCountBadge" class="text-xs font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">0 items</span>
-          </div>
-          <div id="viewOnceList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-            <p class="text-xs text-slate-500 text-center py-6">No View-Once media recorded.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 10: STORAGE & DISK CLEANER -->
-    <section id="tab-storage" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div>
-        <h3 class="font-bold text-lg text-white">Storage Monitor & Disk Maintenance</h3>
-        <p class="text-xs text-slate-400">Manage media caches, sticker libraries, and JSON databases</p>
-      </div>
-
-      <!-- Storage Breakdown Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="p-4 rounded-xl bg-dark-800/50 border border-slate-800 space-y-1">
-          <span class="text-xs text-slate-400">Media Cache</span>
-          <p id="storageMedia" class="text-lg font-bold text-white">0 B</p>
-        </div>
-        <div class="p-4 rounded-xl bg-dark-800/50 border border-slate-800 space-y-1">
-          <span class="text-xs text-slate-400">Sticker Packs</span>
-          <p id="storageStickers" class="text-lg font-bold text-white">0 B</p>
-        </div>
-        <div class="p-4 rounded-xl bg-dark-800/50 border border-slate-800 space-y-1">
-          <span class="text-xs text-slate-400">Audit Logs</span>
-          <p id="storageDeleted" class="text-lg font-bold text-white">0 B</p>
-        </div>
-        <div class="p-4 rounded-xl bg-dark-800/50 border border-slate-800 space-y-1">
-          <span class="text-xs text-slate-400">Total Allocated</span>
-          <p id="storageTotal" class="text-lg font-bold text-emerald-400">0 B</p>
-        </div>
-      </div>
-
-      <!-- Maintenance Actions -->
-      <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-        <h4 class="font-bold text-white text-sm">One-Click Maintenance Actions</h4>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <button class="clean-btn p-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-slate-200 font-semibold text-left transition border border-slate-700/60 flex items-center justify-between" data-target="media">
-            <span>Clear Media Cache</span>
-            <i data-lucide="trash" class="w-4 h-4 text-slate-400"></i>
-          </button>
-          <button class="clean-btn p-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-slate-200 font-semibold text-left transition border border-slate-700/60 flex items-center justify-between" data-target="stickers">
-            <span>Clear Custom Stickers</span>
-            <i data-lucide="trash" class="w-4 h-4 text-slate-400"></i>
-          </button>
-          <button class="clean-btn p-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-slate-200 font-semibold text-left transition border border-slate-700/60 flex items-center justify-between" data-target="deleted">
-            <span>Purge Deleted Logs</span>
-            <i data-lucide="trash" class="w-4 h-4 text-slate-400"></i>
-          </button>
-          <button class="clean-btn p-3 rounded-xl bg-red-900/20 hover:bg-red-900/40 text-red-300 font-semibold text-left transition border border-red-800/40 flex items-center justify-between" data-target="all">
-            <span>Deep Clean All</span>
-            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 11: NOTES & FILE SYSTEM -->
-    <section id="tab-notes" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-lg text-white">Virtual Notes & Documents</h3>
-          <p class="text-xs text-slate-400">Browse saved notes, documents, and private group folders</p>
-        </div>
-        <button id="openNewNoteModalBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 self-start">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-          New Note
-        </button>
-      </div>
-
-      <div class="p-6 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-4">
-        <div id="notesContainer" class="space-y-2 text-xs font-mono">
-          <p class="text-slate-500 py-6 text-center font-sans">Loading notes tree...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 12: REMINDERS & SCHEDULER -->
-    <section id="tab-reminders" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-lg text-white">Scheduled Reminders</h3>
-          <p class="text-xs text-slate-400">Active timers scheduled across all chats</p>
-        </div>
-        <button id="openNewReminderModalBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 self-start">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-          Schedule Reminder
-        </button>
-      </div>
-
-      <div class="rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-dark-700/40 text-slate-400 uppercase font-semibold border-b border-slate-800">
-              <tr>
-                <th class="p-4">Message</th>
-                <th class="p-4">Target Chat</th>
-                <th class="p-4">Due In</th>
-                <th class="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="remindersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
-              <tr><td colspan="4" class="p-6 text-center text-slate-500">Loading reminders...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 13: DIRECT WHATSAPP MESSENGER -->
-    <section id="tab-messenger" class="tab-panel hidden p-4 md:p-8 space-y-6">
-      <div class="max-w-2xl mx-auto p-6 md:p-8 rounded-2xl bg-dark-800/40 border border-slate-800/80 backdrop-blur space-y-5">
-        <div>
-          <h3 class="font-bold text-lg text-white flex items-center gap-2">
-            <i data-lucide="send" class="w-5 h-5 text-emerald-400"></i>
-            Direct WhatsApp Messenger
-          </h3>
-          <p class="text-xs text-slate-400">Select any contact or enter phone number to send instant messages</p>
-        </div>
-
-        <div class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1.5">Quick Select Contact / Group</label>
-            <select id="directRecipientSelect" class="w-full px-3 py-2.5 rounded-xl bg-dark-700 border border-slate-700 text-white focus:outline-none focus:border-emerald-500">
-              <option value="">-- Choose from known contacts or type below --</option>
-            </select>
+        <!-- 
+             Live Call Audio Monitor & Voice Radio Deck
+              -->
+        <div class="card meow-audio-monitor-card"
+          style="margin-bottom: 20px; border: 1px solid var(--border-color); background: var(--bg-surface);">
+          <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+            <div class="card-title" style="display: flex; align-items: center; gap: 10px;">
+              <span class="live-dot" id="audioMonitorLiveDot"></span>
+              <svg style="width: 18px; height: 18px; color: #818cf8;">
+                <use href="#icon-music" />
+              </svg>
+              <span>Live Call Audio Monitor (Listen to Call & Voices)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span class="badge badge-neutral" id="audioMonitorBadge">STANDBY</span>
+              <button class="btn btn-sm btn-outline" id="btnTestAudioChime"
+                style="display: flex; align-items: center; gap: 6px;" title="Test browser audio output with chime">
+                <svg class="icon-inline">
+                  <use href="#icon-volume" />
+                </svg>
+                <span>Test Audio</span>
+              </button>
+              <button class="btn btn-sm btn-primary" id="btnToggleAudioListen"
+                style="display: flex; align-items: center; gap: 6px;">
+                <span id="audioListenBtnIcon"><svg class="icon-inline">
+                    <use href="#icon-headphones" />
+                  </svg></span>
+                <span id="audioListenBtnText">Start Listening</span>
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1.5">Or Enter Phone Number / JID</label>
-            <input type="text" id="directJidInput" placeholder="e.g. 919876543210 or group JID" class="w-full px-3 py-2.5 rounded-xl bg-dark-700 border border-slate-700 text-white font-mono focus:outline-none focus:border-emerald-500">
+          <!-- Channel Selection Pills & Status Subheader -->
+          <div
+            style="padding: 0 16px 14px; border-bottom: 1px solid var(--border-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span
+                style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Listen
+                Feed:</span>
+              <div class="duration-pills" id="audioFeedSelector">
+                <button class="duration-pill active" data-channel="mixed"><svg class="icon-inline">
+                    <use href="#icon-sliders" />
+                  </svg> Full Mix (All Voices + Music)</button>
+                <button class="duration-pill" data-channel="incoming"><svg class="icon-inline">
+                    <use href="#icon-mic" />
+                  </svg> Remote Caller Voices Only</button>
+                <button class="duration-pill" data-channel="outgoing"><svg class="icon-inline">
+                    <use href="#icon-music" />
+                  </svg> Bot Music / Call Outbound Only</button>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);"
+              id="audioMonitorStats">
+              16kHz PCM • Web Audio API • Ultra-Low Latency
+            </div>
           </div>
 
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1.5">Message Content</label>
-            <textarea id="directMsgInput" rows="5" placeholder="Type your WhatsApp message..." class="w-full px-3 py-2.5 rounded-xl bg-dark-700 border border-slate-700 text-white font-sans focus:outline-none focus:border-emerald-500"></textarea>
+          <!-- Visualizers & Gain Controls Grid -->
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; padding: 16px;">
+
+            <!-- Left Panel: Remote Callers Audio Stream -->
+            <div
+              style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-md); padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <svg class="icon-inline" style="color: #38bdf8;">
+                    <use href="#icon-mic" />
+                  </svg>
+                  <span style="font-weight: 600; font-size: 13px; color: #38bdf8;">Remote Voices (Caller Inbound)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="badge"
+                    style="font-size: 9px; background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3);"><svg
+                      class="icon-inline" style="width: 10px; height: 10px;">
+                      <use href="#icon-zap" />
+                    </svg> AGC BOOST</span>
+                  <span class="badge" id="badgeIncomingVoiceActivity"
+                    style="font-size: 10px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">IDLE</span>
+                </div>
+              </div>
+
+              <!-- Oscilloscope Waveform Canvas -->
+              <div
+                style="position: relative; height: 50px; background: rgba(0, 0, 0, 0.3); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 10px;">
+                <canvas id="canvasIncomingAudio" width="340" height="50"
+                  style="width: 100%; height: 100%; display: block;"></canvas>
+              </div>
+
+              <!-- Volume & Level Bar -->
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 11px; color: var(--text-secondary); width: 85px;">Caller Volume:</span>
+                <input type="range" id="sliderGainIncoming" min="0" max="3" step="0.05" value="2.2"
+                  style="flex: 1; accent-color: #38bdf8;">
+                <span
+                  style="font-size: 11px; font-family: var(--font-mono); color: var(--text-primary); width: 38px; text-align: right;"
+                  id="labelGainIncoming">220%</span>
+              </div>
+
+              <!-- Native HTML5 Direct Player Option -->
+              <div
+                style="margin-top: 10px; padding: 6px 10px; background: rgba(0, 0, 0, 0.35); border-radius: var(--radius-sm); border: 1px solid rgba(56, 189, 248, 0.2); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="font-size: 11px; color: #38bdf8; font-weight: 500;">Direct Audio Player:</span>
+                <audio id="nativeAudioCallerStream" controls preload="none" style="height: 26px; max-width: 200px;"
+                  src="/api/meowcaller/audio/listen.wav?channel=incoming"></audio>
+              </div>
+            </div>
+
+            <!-- Right Panel: Bot / My Call Music Playback -->
+            <div
+              style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: var(--radius-md); padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <svg class="icon-inline" style="color: #c084fc;">
+                    <use href="#icon-music" />
+                  </svg>
+                  <span style="font-weight: 600; font-size: 13px; color: #c084fc;">My Call / Bot Audio (Outbound)</span>
+                </div>
+                <span class="badge" id="badgeOutgoingVoiceActivity"
+                  style="font-size: 10px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">IDLE</span>
+              </div>
+
+              <!-- Oscilloscope Waveform Canvas -->
+              <div
+                style="position: relative; height: 50px; background: rgba(0, 0, 0, 0.3); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 10px;">
+                <canvas id="canvasOutgoingAudio" width="340" height="50"
+                  style="width: 100%; height: 100%; display: block;"></canvas>
+              </div>
+
+              <!-- Volume & Level Bar -->
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 11px; color: var(--text-secondary); width: 85px;">Music Volume:</span>
+                <input type="range" id="sliderGainOutgoing" min="0" max="2" step="0.05" value="1"
+                  style="flex: 1; accent-color: #c084fc;">
+                <span
+                  style="font-size: 11px; font-family: var(--font-mono); color: var(--text-primary); width: 38px; text-align: right;"
+                  id="labelGainOutgoing">100%</span>
+              </div>
+            </div>
+
           </div>
 
-          <button id="sendDirectMsgBtn" class="w-full py-3 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
-            <i data-lucide="send" class="w-4 h-4"></i>
-            Send Message
-          </button>
+          <!-- Master Monitor Strip -->
+          <div
+            style="padding: 10px 16px 14px; background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px; max-width: 400px;">
+              <button class="btn btn-sm" id="btnAudioMuteToggle" style="padding: 4px 10px;"
+                title="Mute/Unmute speaker audio">
+                <span id="audioMuteIcon"><svg class="icon-inline">
+                    <use href="#icon-volume" />
+                  </svg></span>
+              </button>
+              <span style="font-size: 12px; font-weight: 500;">Master Volume:</span>
+              <input type="range" id="sliderMasterVolume" min="0" max="1.5" step="0.05" value="1"
+                style="flex: 1; accent-color: var(--accent);">
+              <span style="font-size: 11px; font-family: var(--font-mono); width: 38px; text-align: right;"
+                id="labelMasterVolume">100%</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 11px; color: var(--text-muted);">Direct Streams:</span>
+              <a href="/api/meowcaller/audio/listen.wav?channel=incoming" target="_blank" class="btn btn-sm"
+                style="font-size: 11px; text-decoration: none; padding: 3px 8px; border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8;"
+                title="Open incoming voice stream in new browser tab / VLC">
+                <svg class="icon-inline">
+                  <use href="#icon-mic" />
+                </svg> Caller Voice (.wav)
+              </a>
+              <a href="/api/meowcaller/audio/listen.wav" target="_blank" class="btn btn-sm"
+                style="font-size: 11px; text-decoration: none; padding: 3px 8px;"
+                title="Open mixed audio stream in new browser tab / VLC">
+                <svg class="icon-inline">
+                  <use href="#icon-sliders" />
+                </svg> Full Mix (.wav)
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Song Queue Table Card -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-repeat" />
+              </svg>
+              <span>Upcoming Party Playlist Queue</span>
+            </div>
+            <span class="badge badge-neutral" id="partyQueueCountBadge">0 songs</span>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th>Song Title</th>
+                  <th>Requested By</th>
+                  <th>Added At</th>
+                  <th style="width: 80px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="partyQueueTableBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                    Queue is empty. Search for songs above or use <code>!party add &lt;song&gt;</code> on WhatsApp.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 
+           11. Console Logs Tab
+            -->
+
+      <section class="tab-view" id="view-logs">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg>
+                <use href="#icon-terminal" />
+              </svg> Real-Time Event Stream
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <select class="select" id="logLevelFilter" style="width: 110px; padding: 4px 8px; font-size: 11px;">
+                <option value="ALL">All Levels</option>
+                <option value="INFO">Info</option>
+                <option value="SUCCESS">Success</option>
+                <option value="WARN">Warnings</option>
+                <option value="ERROR">Errors</option>
+              </select>
+              <button class="btn btn-sm" id="btnToggleAutoScroll">Auto-Scroll: ON</button>
+              <button class="btn btn-sm" id="btnClearLogs">Clear</button>
+            </div>
+          </div>
+
+          <div class="log-terminal" id="logTerminal">
+            <!-- Dynamic stream -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ====
+       Modals
+       ==== -->
+
+  <!-- Send Message Modal -->
+  <div class="modal-overlay" id="modalSendMessage">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Send WhatsApp Message</span>
+        <button class="modal-close" data-close-modal>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Recipient JID or Phone Number</label>
+          <input type="text" class="input" id="sendMsgJid" placeholder="e.g. 1234567890@s.whatsapp.net">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message Content</label>
+          <textarea class="textarea" id="sendMsgContent" rows="4" placeholder="Type your message here..."></textarea>
         </div>
       </div>
-    </section>
-
-    <!-- TAB 14: INTERACTIVE COMMAND CHEAT SHEET -->
-    <section id="tab-commands" class="tab-panel hidden p-4 md:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-xl text-white flex items-center gap-2">
-            <i data-lucide="sparkles" class="w-5 h-5 text-amber-400"></i> Command Cheat Sheet & Library
-          </h3>
-          <p class="text-xs text-slate-400">Browse, filter, and 1-click copy any of the 50+ bot commands</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <input type="text" id="commandSearchInput" placeholder="Search commands, tools, personas..." class="px-4 py-2 rounded-xl bg-dark-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 w-64">
-          <select id="commandCategoryFilter" class="px-3 py-2 rounded-xl bg-dark-800 border border-slate-700 text-xs text-white focus:outline-none">
-            <option value="all">All Categories</option>
-            <option value="tools">🛠️ Superpower Tools</option>
-            <option value="media">🎨 Media & Downloads</option>
-            <option value="ai">🤖 AI & Personas</option>
-            <option value="admin">⚙️ Admin & Controls</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Command Cards Grid -->
-      <div id="commandsCardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Rendered via JS -->
-      </div>
-    </section>
-
-    <!-- TAB 15: LIVE TERMINAL & SSE LOGS -->
-    <section id="tab-terminal" class="tab-panel hidden p-4 md:p-8 space-y-4 flex-1 flex flex-col min-h-0">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div class="flex items-center gap-3">
-          <h3 class="font-bold text-lg text-white">Live Activity Stream (SSE)</h3>
-          <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-mono font-medium border border-emerald-500/20">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- Log Filter -->
-          <select id="logTypeFilter" class="px-2.5 py-1 rounded-xl bg-dark-800 text-slate-300 border border-slate-700 text-xs">
-            <option value="all">All Events</option>
-            <option value="MSG">Messages (MSG)</option>
-            <option value="CMD">Commands (CMD)</option>
-            <option value="AI">AI Logic (AI)</option>
-            <option value="SYSTEM">System (SYSTEM)</option>
-            <option value="ERROR">Errors (ERROR)</option>
-          </select>
-          <button id="clearLogsBtn" class="px-3 py-1 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-400 hover:text-white text-xs border border-slate-700 transition">
-            Clear Console
-          </button>
-        </div>
-      </div>
-
-      <!-- Terminal Output Window -->
-      <div class="flex-1 rounded-2xl bg-black/90 border border-slate-800 p-4 font-mono text-xs overflow-y-auto custom-scrollbar flex flex-col-reverse shadow-inner" id="terminalOutput">
-        <!-- Log entries prepend here -->
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Modal: Rename Contact / Set Nickname -->
-  <div id="renameModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl bg-dark-800 border border-slate-700 p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
-        <h4 class="font-bold text-white text-base">Edit Contact Name / Nickname</h4>
-        <button id="closeRenameModalBtn" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Chat JID / ID</label>
-          <input type="text" id="renameJidInput" readonly class="w-full px-3 py-2 rounded-xl bg-dark-900 border border-slate-800 text-slate-400 font-mono">
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Friendly Name / Nickname</label>
-          <input type="text" id="renameNameInput" placeholder="e.g. John Doe or College Group" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white font-sans focus:outline-none focus:border-emerald-500">
-        </div>
-      </div>
-
-      <div class="flex justify-end gap-2 pt-2">
-        <button id="cancelRenameModalBtn" class="px-4 py-2 rounded-xl bg-dark-700 text-slate-300 font-medium text-xs">Cancel</button>
-        <button id="saveRenameBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">Save Name</button>
+      <div class="modal-footer">
+        <button class="btn" data-close-modal>Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitSendMessage">Send</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Mute User -->
-  <div id="muteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl bg-dark-800 border border-slate-700 p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
-        <h4 class="font-bold text-white text-base">Mute Spam User in Chat</h4>
-        <button id="closeMuteModalBtn" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+  <!-- Mute User Modal -->
+  <div class="modal-overlay" id="modalMute">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Mute User</span>
+        <button class="modal-close" data-close-modal>&times;</button>
       </div>
-
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Group / Chat</label>
-          <select id="muteChatSelect" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white"></select>
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Target User Phone / Sender ID</label>
-          <input type="text" id="muteSenderInput" placeholder="e.g. 919876543210" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white font-mono">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">User Phone Number or JID</label>
+          <input type="text" class="input" id="muteTargetInput" placeholder="e.g. 919876543210">
         </div>
       </div>
-
-      <div class="flex justify-end gap-2 pt-2">
-        <button id="cancelMuteModalBtn" class="px-4 py-2 rounded-xl bg-dark-700 text-slate-300 font-medium text-xs">Cancel</button>
-        <button id="confirmMuteBtn" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs">Mute User</button>
+      <div class="modal-footer">
+        <button class="btn" data-close-modal>Cancel</button>
+        <button class="btn btn-danger" id="btnSubmitMute">Mute User</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Schedule Reminder -->
-  <div id="reminderModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl bg-dark-800 border border-slate-700 p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
-        <h4 class="font-bold text-white text-base">Schedule New Reminder</h4>
-        <button id="closeReminderModalBtn" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+  <!-- Create Reminder Modal -->
+  <div class="modal-overlay" id="modalReminder">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Schedule New Reminder</span>
+        <button class="modal-close" data-close-modal>&times;</button>
       </div>
-
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Target Chat</label>
-          <select id="reminderChatSelect" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white"></select>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Target Chat JID</label>
+          <input type="text" class="input" id="reminderJidInput" placeholder="Recipient or group JID">
         </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Duration (Minutes from now)</label>
-          <input type="number" id="reminderMinutesInput" min="1" value="15" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white font-mono">
+        <div class="form-group">
+          <label class="form-label">Duration (e.g. 10m, 2h, 1d)</label>
+          <input type="text" class="input" id="reminderDurationInput" placeholder="15m">
         </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Reminder Text Message</label>
-          <textarea id="reminderTextInput" rows="3" placeholder="Don't forget to submit assignment..." class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white"></textarea>
+        <div class="form-group">
+          <label class="form-label">Reminder Note</label>
+          <input type="text" class="input" id="reminderTextInput" placeholder="Submit physics assignment">
         </div>
       </div>
-
-      <div class="flex justify-end gap-2 pt-2">
-        <button id="cancelReminderModalBtn" class="px-4 py-2 rounded-xl bg-dark-700 text-slate-300 font-medium text-xs">Cancel</button>
-        <button id="saveReminderBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">Schedule</button>
+      <div class="modal-footer">
+        <button class="btn" data-close-modal>Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitReminder">Schedule</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Create Custom Persona -->
-  <div id="personaModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-    <div class="w-full max-w-lg rounded-2xl bg-dark-800 border border-slate-700 p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
-        <h4 class="font-bold text-white text-base">Add Dynamic Persona</h4>
-        <button id="closePersonaModalBtn" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+  <!-- Add Trigger Modal -->
+  <div class="modal-overlay" id="modalTrigger">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Add Auto-Reply Trigger</span>
+        <button class="modal-close" data-close-modal>&times;</button>
       </div>
-
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Key (Trigger: !key)</label>
-          <input type="text" id="newPersonaKey" placeholder="e.g. megumin" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white font-mono">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Trigger Keyword</label>
+          <input type="text" class="input" id="triggerKeywordInput" placeholder="e.g. price">
         </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Display Label</label>
-          <input type="text" id="newPersonaLabel" placeholder="e.g. Megumin" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white">
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Character Flavor Prompt</label>
-          <textarea id="newPersonaFlavor" rows="4" placeholder="You are chatting as Megumin: dramatic, obsessed with explosion magic..." class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white"></textarea>
+        <div class="form-group">
+          <label class="form-label">Automated Response</label>
+          <textarea class="textarea" id="triggerResponseInput" rows="3"
+            placeholder="Our pricing plans are available at..."></textarea>
         </div>
       </div>
-
-      <div class="flex justify-end gap-2 pt-2">
-        <button id="cancelPersonaModalBtn" class="px-4 py-2 rounded-xl bg-dark-700 text-slate-300 font-medium text-xs">Cancel</button>
-        <button id="saveNewPersonaBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">Save Persona</button>
-      </div>
-    </div>
-  </div>
-  <!-- Modal: Create Note -->
-  <div id="noteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl bg-dark-800 border border-slate-700 p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
-        <h4 class="font-bold text-white text-base">Create Virtual Note</h4>
-        <button id="closeNoteModalBtn" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Path / Key (e.g. dev/todo or links/docs)</label>
-          <input type="text" id="newNotePath" placeholder="folder/filename" class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white font-mono">
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Content</label>
-          <textarea id="newNoteContent" rows="4" placeholder="Enter note or snippet content..." class="w-full px-3 py-2 rounded-xl bg-dark-700 border border-slate-700 text-white font-sans"></textarea>
-        </div>
-      </div>
-
-      <div class="flex justify-end gap-2 pt-2">
-        <button id="cancelNoteModalBtn" class="px-4 py-2 rounded-xl bg-dark-700 text-slate-300 font-medium text-xs">Cancel</button>
-        <button id="saveNewNoteBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">Save Note</button>
+      <div class="modal-footer">
+        <button class="btn" data-close-modal>Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitTrigger">Save Trigger</button>
       </div>
     </div>
   </div>
 
-  <!-- Global Toast Notification Container -->
-  <div id="toast-container"></div>
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js"></script>
+  <script src="app.js"></script>
+  <script src="ux.js"></script>
 </body>
+
 </html>

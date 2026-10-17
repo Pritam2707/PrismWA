@@ -10,6 +10,7 @@ cookies.txt
 cookies*.txt
 
 # Legacy / Archive
+archive/
 
 # WhatsApp Authentication & Sessions
 auth_info/

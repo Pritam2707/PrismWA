@@ -1,1750 +1,3835 @@
-/**
- * PrismBot Dashboard Frontend Application
- * High-performance, lightweight Vanilla JS with luxury Obsidian & Cyber-Glass aesthetics
- */
 
-let activityChartInstance = null;
-let currentTab = "overview";
-let allCachedChats = [];
-let allTerminalLogs = [];
+(function () {
+  "use strict";
 
-// ---------------------------------------------------------------------------
-// 0. TOAST NOTIFICATION SYSTEM
-// ---------------------------------------------------------------------------
-function showToast(message, type = "info") {
-  const container = document.getElementById("toast-container");
-  if (!container) return;
-
-  const toast = document.createElement("div");
-  toast.className = `toast-item toast-${type}`;
-
-  const iconName = type === "success" ? "check-circle" : type === "error" ? "alert-circle" : "info";
-
-  toast.innerHTML = `
-    <i data-lucide="${iconName}" class="w-4 h-4 flex-shrink-0"></i>
-    <span class="text-xs font-medium leading-snug">${escapeHtml(message)}</span>
-  `;
-
-  container.appendChild(toast);
-  if (window.lucide) {
-    lucide.createIcons({ root: toast });
-  }
-
-  setTimeout(() => {
-    toast.style.animation = "toast-out 0.25s ease-in forwards";
-    setTimeout(() => toast.remove(), 250);
-  }, 3500);
-}
-
-// Initialize on DOM ready
-document.addEventListener("DOMContentLoaded", () => {
-  if (window.lucide) lucide.createIcons();
-  setupNavigation();
-  setupEventListeners();
-  initActivityChart();
-  initSseLogStream();
-
-  // Initial data load
-  fetchStatus();
-  fetchActiveTabData(currentTab);
-
-  // Auto-refresh metrics every 4 seconds (ultra-low CPU footprint)
-  setInterval(fetchStatus, 4000);
-});
-
-// ---------------------------------------------------------------------------
-// 1. NAVIGATION & TAB SWITCHING
-// ---------------------------------------------------------------------------
-function setupNavigation() {
-  const links = document.querySelectorAll(".nav-link");
-  const panels = document.querySelectorAll(".tab-panel");
-  const title = document.getElementById("currentTabTitle");
-  const subTitle = document.getElementById("currentSubTitle");
-
-  const tabTitles = {
-    overview: { title: "Overview", sub: "System telemetry & live metrics" },
-    controls: { title: "Chats & Contacts", sub: "Names, nicknames, and chat protections" },
-    broadcast: { title: "Broadcast Studio", sub: "Send paced announcements across groups and DMs" },
-    moderation: { title: "Moderation & Mutes", sub: "Manage muted users and anti-spam locks" },
-    welcome: { title: "Welcomer Studio", sub: "Automated group greeting banners & templates" },
-    personas: { title: "AI Personas & Tester", sub: "Character prompts & live interactive sandbox" },
-    autoreply: { title: "Auto-Reply / Away", sub: "Away mode, trigger keywords, visitor inbox" },
-    analytics: { title: "Chat Analytics", sub: "Member rankings and message breakdown" },
-    audit: { title: "Audit Vault", sub: "Recovered deleted messages and view-once media" },
-    storage: { title: "Storage Cleaner", sub: "Disk usage monitoring and cache cleaner" },
-    notes: { title: "Notes Explorer", sub: "Virtual folder tree and document storage" },
-    reminders: { title: "Reminders & Scheduler", sub: "Active countdown timers and reminders" },
-    messenger: { title: "Direct Messenger", sub: "Send direct messages to contacts or groups" },
-    commands: { title: "Command Cheat Sheet", sub: "50+ bot commands library & quick copy" },
-    terminal: { title: "Live Activity Console", sub: "Real-time SSE event stream" },
+  // Application State
+  const state = {
+    currentTab: "overview",
+    theme: localStorage.getItem("prism_theme") || "dark",
+    isSleeping: false,
+    autoScrollLogs: true,
+    logsFilter: "ALL",
+    chats: [],
+    logs: [],
+    personas: {},
+    welcomeConfig: {},
+    mutes: [],
+    reminders: [],
+    aiConfig: null,
+    meowcaller: null,
+    selectedDurationMinutes: 30,
+    pollTimer: null,
+    logTimer: null,
   };
 
-  function switchTab(tabId) {
-    currentTab = tabId;
-    links.forEach((l) => l.classList.toggle("active", l.dataset.tab === tabId));
-    panels.forEach((p) => p.classList.toggle("hidden", p.id !== `tab-${tabId}`));
+  // DOM Elements Cache
+  const el = {
+    appSidebar: document.getElementById("appSidebar"),
+    mobileMenuBtn: document.getElementById("mobileMenuBtn"),
+    pageTitle: document.getElementById("pageTitle"),
+    btnToggleTheme: document.getElementById("btnToggleTheme"),
+    themeIcon: document.getElementById("themeIcon"),
+    btnToggleSleep: document.getElementById("btnToggleSleep"),
+    sleepBtnIcon: document.getElementById("sleepBtnIcon"),
+    sleepBtnText: document.getElementById("sleepBtnText"),
+    btnQuickRefresh: document.getElementById("btnQuickRefresh"),
+    btnOpenSendMessageModal: document.getElementById("btnOpenSendMessageModal"),
+    toastContainer: document.getElementById("toastContainer"),
 
-    if (tabTitles[tabId]) {
-      if (title) title.textContent = tabTitles[tabId].title;
-      if (subTitle) subTitle.textContent = tabTitles[tabId].sub;
+    // Overview Elements
+    footerStatusDot: document.getElementById("footerStatusDot"),
+    footerStatusText: document.getElementById("footerStatusText"),
+    connectionNoticeCard: document.getElementById("connectionNoticeCard"),
+    qrContainer: document.getElementById("qrContainer"),
+    qrImage: document.getElementById("qrImage"),
+    connHeadline: document.getElementById("connHeadline"),
+    connDesc: document.getElementById("connDesc"),
+    btnRefreshStatus: document.getElementById("btnRefreshStatus"),
+    metricConnState: document.getElementById("metricConnState"),
+    metricPhone: document.getElementById("metricPhone"),
+    metricUptime: document.getElementById("metricUptime"),
+    metricGoroutines: document.getElementById("metricGoroutines"),
+    metricMemory: document.getElementById("metricMemory"),
+    metricSysMemory: document.getElementById("metricSysMemory"),
+    metricMessages: document.getElementById("metricMessages"),
+    badgePowerState: document.getElementById("badgePowerState"),
+    labelAntiDeleteCount: document.getElementById("labelAntiDeleteCount"),
+    labelFeaturesCount: document.getElementById("labelFeaturesCount"),
+    rtPlatform: document.getElementById("rtPlatform"),
+    rtGoVersion: document.getElementById("rtGoVersion"),
+    rtCpuCount: document.getElementById("rtCpuCount"),
+    rtNumGC: document.getElementById("rtNumGC"),
+
+    // Audit Vault
+    auditTableBody: document.getElementById("auditTableBody"),
+    btnRefreshAudit: document.getElementById("btnRefreshAudit"),
+    btnClearAudit: document.getElementById("btnClearAudit"),
+
+    // Chats
+    searchChatsInput: document.getElementById("searchChatsInput"),
+    chatsTableBody: document.getElementById("chatsTableBody"),
+
+    // Moderation
+    mutesTableBody: document.getElementById("mutesTableBody"),
+    btnOpenMuteModal: document.getElementById("btnOpenMuteModal"),
+    welcomeStatusBadge: document.getElementById("welcomeStatusBadge"),
+    welcomeTemplateInput: document.getElementById("welcomeTemplateInput"),
+    btnSaveWelcome: document.getElementById("btnSaveWelcome"),
+    btnToggleWelcome: document.getElementById("btnToggleWelcome"),
+
+    // Personas & AI Engine
+    aiGlobalActiveBadge: document.getElementById("aiGlobalActiveBadge"),
+    aiProviderGrid: document.getElementById("aiProviderGrid"),
+    aiGlobalModelInput: document.getElementById("aiGlobalModelInput"),
+    btnSaveGlobalAI: document.getElementById("btnSaveGlobalAI"),
+    aiModelPresets: document.getElementById("aiModelPresets"),
+    aiStyleGrid: document.getElementById("aiStyleGrid"),
+    aiOverrideChatSelect: document.getElementById("aiOverrideChatSelect"),
+    aiOverrideProviderSelect: document.getElementById("aiOverrideProviderSelect"),
+    aiOverrideStyleSelect: document.getElementById("aiOverrideStyleSelect"),
+    aiOverrideModelInput: document.getElementById("aiOverrideModelInput"),
+    btnSaveChatOverride: document.getElementById("btnSaveChatOverride"),
+    aiChatOverridesContainer: document.getElementById("aiChatOverridesContainer"),
+    personasListContainer: document.getElementById("personasListContainer"),
+    playgroundPersonaSelect: document.getElementById("playgroundPersonaSelect"),
+    playgroundPromptInput: document.getElementById("playgroundPromptInput"),
+    btnTestPersona: document.getElementById("btnTestPersona"),
+    playgroundOutput: document.getElementById("playgroundOutput"),
+
+    // Auto-Reply
+    badgeAutoReplyState: document.getElementById("badgeAutoReplyState"),
+    selectAutoReplyMode: document.getElementById("selectAutoReplyMode"),
+    autoReplyDefaultText: document.getElementById("autoReplyDefaultText"),
+    btnSaveAutoReply: document.getElementById("btnSaveAutoReply"),
+    btnAddTriggerBtn: document.getElementById("btnAddTriggerBtn"),
+    triggersTableBody: document.getElementById("triggersTableBody"),
+
+    // Reminders
+    remindersTableBody: document.getElementById("remindersTableBody"),
+    btnOpenReminderModal: document.getElementById("btnOpenReminderModal"),
+
+    // Notes
+    notesTreeContainer: document.getElementById("notesTreeContainer"),
+
+    // Storage
+    storageMediaSize: document.getElementById("storageMediaSize"),
+    storageDbSize: document.getElementById("storageDbSize"),
+    storageNotesSize: document.getElementById("storageNotesSize"),
+    storageAuditSize: document.getElementById("storageAuditSize"),
+    btnCleanMedia: document.getElementById("btnCleanMedia"),
+
+    // Logs
+    logTerminal: document.getElementById("logTerminal"),
+    logLevelFilter: document.getElementById("logLevelFilter"),
+    btnToggleAutoScroll: document.getElementById("btnToggleAutoScroll"),
+    btnClearLogs: document.getElementById("btnClearLogs"),
+
+    // Modals
+    btnOpenHelpModal: document.getElementById("btnOpenHelpModal"),
+    modalHelp: document.getElementById("modalHelp"),
+    helpSearchInput: document.getElementById("helpSearchInput"),
+    helpFilterPills: document.getElementById("helpFilterPills"),
+    helpCommandsList: document.getElementById("helpCommandsList"),
+
+    modalSendMessage: document.getElementById("modalSendMessage"),
+    sendMsgJid: document.getElementById("sendMsgJid"),
+    sendMsgContent: document.getElementById("sendMsgContent"),
+    btnSubmitSendMessage: document.getElementById("btnSubmitSendMessage"),
+
+    modalMute: document.getElementById("modalMute"),
+    muteTargetInput: document.getElementById("muteTargetInput"),
+    btnSubmitMute: document.getElementById("btnSubmitMute"),
+
+    modalReminder: document.getElementById("modalReminder"),
+    reminderJidInput: document.getElementById("reminderJidInput"),
+    reminderDurationInput: document.getElementById("reminderDurationInput"),
+    reminderTextInput: document.getElementById("reminderTextInput"),
+    btnSubmitReminder: document.getElementById("btnSubmitReminder"),
+
+    modalTrigger: document.getElementById("modalTrigger"),
+    triggerKeywordInput: document.getElementById("triggerKeywordInput"),
+    triggerResponseInput: document.getElementById("triggerResponseInput"),
+    btnSubmitTrigger: document.getElementById("btnSubmitTrigger"),
+
+    // Reports & Deadlines
+    reportDatePicker: document.getElementById("reportDatePicker"),
+    btnGenerateReportSummary: document.getElementById("btnGenerateReportSummary"),
+    reportSummaryStatusBadge: document.getElementById("reportSummaryStatusBadge"),
+    reportSummaryContent: document.getElementById("reportSummaryContent"),
+    reportsCountBadge: document.getElementById("reportsCountBadge"),
+    reportsTableBody: document.getElementById("reportsTableBody"),
+    newReportGroupInput: document.getElementById("newReportGroupInput"),
+    btnAddReportGroupBtn: document.getElementById("btnAddReportGroupBtn"),
+    reportGroupsList: document.getElementById("reportGroupsList"),
+    leaderboardMiniBody: document.getElementById("leaderboardMiniBody"),
+    pfpGroupJidInput: document.getElementById("pfpGroupJidInput"),
+    pfpDateInput: document.getElementById("pfpDateInput"),
+    pfpTitleInput: document.getElementById("pfpTitleInput"),
+    btnSaveDeadline: document.getElementById("btnSaveDeadline"),
+    deadlinesTableBody: document.getElementById("deadlinesTableBody"),
+    pfpLivePreviewImg: document.getElementById("pfpLivePreviewImg"),
+
+    // MeowCaller VoIP & Song Party
+    sidebarCallerBadge: document.getElementById("sidebarCallerBadge"),
+    labelMeowCallerOverview: document.getElementById("labelMeowCallerOverview"),
+    badgeMeowCallerState: document.getElementById("badgeMeowCallerState"),
+    btnQuickOpenCaller: document.getElementById("btnQuickOpenCaller"),
+    callerStatusBadge: document.getElementById("callerStatusBadge"),
+    callerTimerRemainingBadge: document.getElementById("callerTimerRemainingBadge"),
+    btnToggleCallerMaster: document.getElementById("btnToggleCallerMaster"),
+    callerMasterBtnIcon: document.getElementById("callerMasterBtnIcon"),
+    callerMasterBtnText: document.getElementById("callerMasterBtnText"),
+    callerDurationPresets: document.getElementById("callerDurationPresets"),
+    checkCallerAutoAccept: document.getElementById("checkCallerAutoAccept"),
+    callerCallPhaseBadge: document.getElementById("callerCallPhaseBadge"),
+    callerCallDuration: document.getElementById("callerCallDuration"),
+    callerAvatarIcon: document.getElementById("callerAvatarIcon"),
+    callerCallPeer: document.getElementById("callerCallPeer"),
+    callerCallSubtext: document.getElementById("callerCallSubtext"),
+    callerDialTarget: document.getElementById("callerDialTarget"),
+    callerRecentRecipients: document.getElementById("callerRecentRecipients"),
+    callerIncomingAlert: document.getElementById("callerIncomingAlert"),
+    callerIncomingDuration: document.getElementById("callerIncomingDuration"),
+    callerIncomingPeer: document.getElementById("callerIncomingPeer"),
+    btnCallerAnswer: document.getElementById("btnCallerAnswer"),
+    btnCallerReject: document.getElementById("btnCallerReject"),
+    btnCallerDial: document.getElementById("btnCallerDial"),
+    btnCallerHangup: document.getElementById("btnCallerHangup"),
+    partyVisualizer: document.getElementById("partyVisualizer"),
+    partyPlaybackBadge: document.getElementById("partyPlaybackBadge"),
+    partyNowPlayingTitle: document.getElementById("partyNowPlayingTitle"),
+    partyNowPlayingRequester: document.getElementById("partyNowPlayingRequester"),
+    btnPartyPauseResume: document.getElementById("btnPartyPauseResume"),
+    partyPauseResumeIcon: document.getElementById("partyPauseResumeIcon"),
+    partyPauseResumeText: document.getElementById("partyPauseResumeText"),
+    btnPartySkip: document.getElementById("btnPartySkip"),
+    btnPartyStop: document.getElementById("btnPartyStop"),
+    partySongInput: document.getElementById("partySongInput"),
+    btnPartyQueueSong: document.getElementById("btnPartyQueueSong"),
+    partyQueueCountBadge: document.getElementById("partyQueueCountBadge"),
+    partyQueueTableBody: document.getElementById("partyQueueTableBody"),
+
+    // Realtime AI Voice Chatbot
+    voiceBotLiveDot: document.getElementById("voiceBotLiveDot"),
+    voiceBotStatusBadge: document.getElementById("voiceBotStatusBadge"),
+    voiceBotLatencyBadge: document.getElementById("voiceBotLatencyBadge"),
+    btnToggleVoiceBot: document.getElementById("btnToggleVoiceBot"),
+    voiceBotBtnIcon: document.getElementById("voiceBotBtnIcon"),
+    voiceBotBtnText: document.getElementById("voiceBotBtnText"),
+    voiceBotServerUrl: document.getElementById("voiceBotServerUrl"),
+    btnConnectVoiceBotWs: document.getElementById("btnConnectVoiceBotWs"),
+    btnConnectWsIcon: document.getElementById("btnConnectWsIcon"),
+    btnConnectWsText: document.getElementById("btnConnectWsText"),
+    voiceBotWsConnBadge: document.getElementById("voiceBotWsConnBadge"),
+    voiceBotWsError: document.getElementById("voiceBotWsError"),
+    voiceBotVoiceSelect: document.getElementById("voiceBotVoiceSelect"),
+    voiceBotModelSelect: document.getElementById("voiceBotModelSelect"),
+    voiceBotSilenceSlider: document.getElementById("voiceBotSilenceSlider"),
+    voiceBotSilenceVal: document.getElementById("voiceBotSilenceVal"),
+    voiceBotPromptInput: document.getElementById("voiceBotPromptInput"),
+    voiceBotSongTriggerInput: document.getElementById("voiceBotSongTriggerInput"),
+    btnSaveVoiceBotConfig: document.getElementById("btnSaveVoiceBotConfig"),
+    voiceBotAsrStateBadge: document.getElementById("voiceBotAsrStateBadge"),
+    voiceBotLiveTranscript: document.getElementById("voiceBotLiveTranscript"),
+    voiceBotTtsStateBadge: document.getElementById("voiceBotTtsStateBadge"),
+    voiceBotLiveResponse: document.getElementById("voiceBotLiveResponse"),
+    voiceBotMetricLatency: document.getElementById("voiceBotMetricLatency"),
+    voiceBotMetricContext: document.getElementById("voiceBotMetricContext"),
+    voiceBotMetricTurns: document.getElementById("voiceBotMetricTurns"),
+
+    // Live Call Audio Monitor
+    audioMonitorLiveDot: document.getElementById("audioMonitorLiveDot"),
+    audioMonitorBadge: document.getElementById("audioMonitorBadge"),
+    btnToggleAudioListen: document.getElementById("btnToggleAudioListen"),
+    audioListenBtnIcon: document.getElementById("audioListenBtnIcon"),
+    audioListenBtnText: document.getElementById("audioListenBtnText"),
+    audioFeedSelector: document.getElementById("audioFeedSelector"),
+    audioMonitorStats: document.getElementById("audioMonitorStats"),
+    badgeIncomingVoiceActivity: document.getElementById("badgeIncomingVoiceActivity"),
+    canvasIncomingAudio: document.getElementById("canvasIncomingAudio"),
+    sliderGainIncoming: document.getElementById("sliderGainIncoming"),
+    labelGainIncoming: document.getElementById("labelGainIncoming"),
+    badgeOutgoingVoiceActivity: document.getElementById("badgeOutgoingVoiceActivity"),
+    canvasOutgoingAudio: document.getElementById("canvasOutgoingAudio"),
+    sliderGainOutgoing: document.getElementById("sliderGainOutgoing"),
+    labelGainOutgoing: document.getElementById("labelGainOutgoing"),
+    btnAudioMuteToggle: document.getElementById("btnAudioMuteToggle"),
+    audioMuteIcon: document.getElementById("audioMuteIcon"),
+    sliderMasterVolume: document.getElementById("sliderMasterVolume"),
+    labelMasterVolume: document.getElementById("labelMasterVolume"),
+    callerLiveAudioNotice: document.getElementById("callerLiveAudioNotice"),
+    callerLiveAudioNoticeText: document.getElementById("callerLiveAudioNoticeText"),
+    btnQuickStartListening: document.getElementById("btnQuickStartListening"),
+    btnTestAudioChime: document.getElementById("btnTestAudioChime"),
+    nativeAudioCallerStream: document.getElementById("nativeAudioCallerStream"),
+
+    // Radio Station DJ & Live Mic
+    radioLiveDot: document.getElementById("radioLiveDot"),
+    radioOnAirBadge: document.getElementById("radioOnAirBadge"),
+    radioSpeakingBadge: document.getElementById("radioSpeakingBadge"),
+    btnRadioPTT: document.getElementById("btnRadioPTT"),
+    radioPttText: document.getElementById("radioPttText"),
+    btnRadioMicToggle: document.getElementById("btnRadioMicToggle"),
+    radioMicBtnIcon: document.getElementById("radioMicBtnIcon"),
+    radioMicBtnText: document.getElementById("radioMicBtnText"),
+    radioModeSelector: document.getElementById("radioModeSelector"),
+    selectRadioMicDevice: document.getElementById("selectRadioMicDevice"),
+    sliderRadioMicGain: document.getElementById("sliderRadioMicGain"),
+    labelRadioMicGain: document.getElementById("labelRadioMicGain"),
+    sliderRadioDuckLevel: document.getElementById("sliderRadioDuckLevel"),
+    labelRadioDuckLevel: document.getElementById("labelRadioDuckLevel"),
+    radioVuBar: document.getElementById("radioVuBar"),
+    labelRadioMicDb: document.getElementById("labelRadioMicDb"),
+    radioStatusText: document.getElementById("radioStatusText"),
+    radioMixFeedback: document.getElementById("radioMixFeedback"),
+  };
+
+  // ==========================================================================
+  // Toast Notifications
+  // ==========================================================================
+  function showToast(message, type = "success") {
+    if (!el.toastContainer) return;
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+
+    let icon = "✓";
+    if (type === "danger") icon = "✕";
+    if (type === "warning") icon = "!";
+
+    toast.innerHTML = `<span style="font-weight:700;">${icon}</span> <span>${escapeHtml(message)}</span>`;
+    el.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(6px)";
+      toast.style.transition = "all 200ms ease";
+      setTimeout(() => toast.remove(), 220);
+    }, 3200);
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatTime(secs) {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.floor(secs % 60);
+    return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+  }
+
+  //theme
+  function initTheme() {
+    document.documentElement.setAttribute("data-theme", state.theme);
+    updateThemeIcon();
+  }
+
+  function toggleTheme() {
+    state.theme = state.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("prism_theme", state.theme);
+    document.documentElement.setAttribute("data-theme", state.theme);
+    updateThemeIcon();
+  }
+
+  function updateThemeIcon() {
+    if (!el.themeIcon) return;
+    el.themeIcon.innerHTML = `<use href="#icon-${state.theme === "dark" ? "sun" : "moon"}"/>`;
+  }
+
+  // Navigation & Tab Switching
+
+  function switchTab(tabName) {
+    state.currentTab = tabName;
+
+    // Update active nav button
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      if (btn.getAttribute("data-tab") === tabName) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+
+    // Update view visibility
+    document.querySelectorAll(".tab-view").forEach((view) => {
+      if (view.id === `view-${tabName}`) {
+        view.classList.add("active");
+      } else {
+        view.classList.remove("active");
+      }
+    });
+
+    // Update Title in Topbar
+    const tabTitles = {
+      overview: "Overview",
+      audit: "Audit Vault (Deleted Messages)",
+      chats: "Chats & Contacts",
+      moderation: "Moderation Studio",
+      personas: "AI Persona Studio",
+      reports: "Daily Reports & Deadline PFP Manager",
+      autoreply: "Auto-Reply Engine",
+      reminders: "Reminders & Scheduler",
+      notes: "Notes Explorer",
+      meowcaller: "MeowCaller VoIP & Song Party Studio",
+      storage: "Disk & Storage Utilization",
+      logs: "Real-Time Console Logs",
+    };
+    if (el.pageTitle) {
+      el.pageTitle.textContent = tabTitles[tabName] || "PrismBot Console";
     }
 
-    fetchActiveTabData(tabId);
-    if (window.lucide) lucide.createIcons();
+    // Close mobile menu if open
+    if (el.appSidebar) {
+      el.appSidebar.classList.remove("open");
+    }
 
-    // Close mobile drawer on switch
-    document.getElementById("sidebar")?.classList.add("-translate-x-full");
+    // Load active tab data immediately
+    loadCurrentTabData();
   }
 
-  links.forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      const tabId = link.dataset.tab;
-      window.location.hash = tabId;
-      switchTab(tabId);
+  function loadCurrentTabData() {
+    switch (state.currentTab) {
+      case "overview":
+        fetchStatus();
+        break;
+      case "audit":
+        fetchAudit();
+        break;
+      case "chats":
+        fetchChats();
+        break;
+      case "moderation":
+        fetchMutes();
+        fetchWelcome();
+        break;
+      case "personas":
+        fetchPersonas();
+        fetchAIConfig();
+        break;
+      case "reports":
+        fetchReportsData();
+        break;
+      case "autoreply":
+        fetchAutoReply();
+        break;
+      case "reminders":
+        fetchReminders();
+        break;
+      case "notes":
+        fetchNotes();
+        break;
+      case "meowcaller":
+        fetchMeowCallerStatus();
+        break;
+      case "storage":
+        fetchStorage();
+        break;
+      case "logs":
+        fetchLogs();
+        break;
+    }
+  }
+
+  // Modals Manager
+  function openModal(modalEl) {
+    if (!modalEl) return;
+    modalEl.classList.add("active");
+  }
+
+  function closeModal(modalEl) {
+    if (!modalEl) return;
+    modalEl.classList.remove("active");
+  }
+
+  function initModalListeners() {
+    // Close buttons
+    document.querySelectorAll("[data-close-modal]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const modal = e.target.closest(".modal-overlay");
+        if (modal) closeModal(modal);
+      });
     });
-  });
 
-  // Handle Hash routing
-  const initialHash = window.location.hash.replace("#", "");
-  if (initialHash && tabTitles[initialHash]) {
-    switchTab(initialHash);
+    // Background backdrop click
+    document.querySelectorAll(".modal-overlay").forEach((modal) => {
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal(modal);
+      });
+    });
+
+    // Escape key closes modals (R-32)
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        document.querySelectorAll(".modal-overlay.active").forEach((modal) => {
+          closeModal(modal);
+        });
+      }
+    });
   }
-}
 
-function setupEventListeners() {
-  // Mobile sidebar toggles
-  document.getElementById("mobileMenuBtn")?.addEventListener("click", () => {
-    document.getElementById("sidebar")?.classList.toggle("-translate-x-full");
-  });
+  // API Calls & Renderers
+  // Status Telemetry
+  async function fetchStatus() {
+    try {
+      const res = await fetch("/api/status");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderStatus(data);
+    } catch (err) {
+      if (el.footerStatusDot) {
+        el.footerStatusDot.className = "status-dot offline";
+      }
+      if (el.footerStatusText) {
+        el.footerStatusText.textContent = "Offline / Server Error";
+      }
+    }
+  }
 
-  document.getElementById("closeSidebarBtn")?.addEventListener("click", () => {
-    document.getElementById("sidebar")?.classList.add("-translate-x-full");
-  });
+  function renderStatus(data) {
+    const bot = data.bot || {};
+    const sys = data.system || {};
 
-  // Quick Broadcast Launcher in top bar
-  document.getElementById("quickBroadcastLauncherBtn")?.addEventListener("click", () => {
-    window.location.hash = "broadcast";
-    const broadcastLink = document.querySelector('[data-tab="broadcast"]');
-    broadcastLink?.click();
-  });
+    state.isSleeping = !!bot.isSleeping;
 
-  // Quick Sleep/Wake toggle
-  document.getElementById("quickSleepBtn")?.addEventListener("click", async () => {
+    // Power status
+    if (el.badgePowerState) {
+      el.badgePowerState.textContent = state.isSleeping ? "Sleeping" : "Awake";
+      el.badgePowerState.className = `badge ${state.isSleeping ? "badge-warning" : "badge-success"}`;
+    }
+    if (el.sleepBtnIcon) el.sleepBtnIcon.innerHTML = state.isSleeping ? '<svg class="icon-inline"><use href="#icon-clock"/></svg>' : '<svg class="icon-inline"><use href="#icon-moon"/></svg>';
+    if (el.sleepBtnText) el.sleepBtnText.textContent = state.isSleeping ? "Wake Up" : "Sleep";
+
+    // Metrics
+    const connState = bot.connectionState || "disconnected";
+    if (el.metricConnState) el.metricConnState.textContent = capitalize(connState);
+    if (el.metricPhone) {
+      el.metricPhone.textContent = bot.user && bot.user.phone ? `+${bot.user.phone}` : "No active pairing";
+    }
+    if (el.metricUptime) el.metricUptime.textContent = formatTime(bot.uptimeSecs || 0);
+    const allocVal = sys.allocMB !== undefined ? sys.allocMB : (sys.heapUsedMB !== undefined ? sys.heapUsedMB : 0);
+    const sysVal = sys.sysMB !== undefined ? sys.sysMB : (sys.rssMB !== undefined ? sys.rssMB : 0);
+    if (el.metricMemory) el.metricMemory.textContent = `${allocVal} MB`;
+    if (el.metricSysMemory) el.metricSysMemory.textContent = `System OS: ${sysVal} MB`;
+    if (el.metricMessages) el.metricMessages.textContent = bot.totalCachedMessages || 0;
+
+    // Scope counters
+    if (el.labelAntiDeleteCount) {
+      el.labelAntiDeleteCount.textContent = `${bot.antiDeleteChatsCount || 0} chats protected`;
+    }
+    if (el.labelFeaturesCount) {
+      el.labelFeaturesCount.textContent = `${bot.featureChatsCount || 0} chats enabled`;
+    }
+
+    // Diagnostics
+    if (el.rtPlatform) el.rtPlatform.textContent = `${sys.platform || "-"} / ${sys.arch || "-"}`;
+    if (el.rtGoVersion) el.rtGoVersion.textContent = sys.goVersion || "-";
+    if (el.rtCpuCount) el.rtCpuCount.textContent = sys.cpuCount || "-";
+    if (el.rtNumGC) el.rtNumGC.textContent = sys.numGC !== undefined ? sys.numGC : "-";
+
+    // Footer indicator
+    if (el.footerStatusDot) {
+      if (connState === "connected" || connState === "open") {
+        el.footerStatusDot.className = "status-dot online";
+        if (el.footerStatusText) el.footerStatusText.textContent = "Online";
+      } else if (connState === "qr_pending" || connState === "connecting") {
+        el.footerStatusDot.className = "status-dot warning";
+        if (el.footerStatusText) el.footerStatusText.textContent = "Awaiting QR";
+      } else {
+        el.footerStatusDot.className = "status-dot offline";
+        if (el.footerStatusText) el.footerStatusText.textContent = "Disconnected";
+      }
+    }
+
+    // QR / Pairing Card
+    if (connState !== "connected" && connState !== "open") {
+      if (el.connectionNoticeCard) el.connectionNoticeCard.style.display = "block";
+      if (bot.qrCode) {
+        if (el.qrContainer) el.qrContainer.style.display = "flex";
+        if (el.qrImage) el.qrImage.src = bot.qrCode;
+        if (el.connHeadline) el.connHeadline.textContent = "Pairing Required";
+        if (el.connDesc) {
+          el.connDesc.textContent = "Open WhatsApp on your mobile phone, navigate to Linked Devices, and scan the QR code.";
+        }
+      } else {
+        if (el.qrContainer) el.qrContainer.style.display = "none";
+        if (el.connHeadline) el.connHeadline.textContent = "Connecting to WhatsApp Network";
+        if (el.connDesc) {
+          el.connDesc.textContent = "PrismBot is opening the socket and acquiring device credentials.";
+        }
+      }
+    } else {
+      if (el.connectionNoticeCard) el.connectionNoticeCard.style.display = "none";
+    }
+
+    if (bot.meowcaller) {
+      updateMeowCallerStatusUI(bot.meowcaller);
+    }
+  }
+
+  function capitalize(str) {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  // Toggle Sleep / Wake
+  async function toggleSleep() {
     try {
       const res = await fetch("/api/control/toggle-sleep", { method: "POST" });
       const data = await res.json();
-      updateSleepUI(data.isSleeping);
-      showToast(data.isSleeping ? "Bot entered Sleep Mode" : "Bot woke up & resumed full ops", "info");
-    } catch (e) {
-      console.error(e);
-      showToast("Failed to toggle sleep mode", "error");
-    }
-  });
-
-  // Manual Refresh
-  document.getElementById("refreshBtn")?.addEventListener("click", () => {
-    fetchStatus();
-    fetchActiveTabData(currentTab);
-    showToast("Dashboard refreshed", "info");
-  });
-
-  // Chat Directory Search & Filter
-  document.getElementById("chatSearchInput")?.addEventListener("input", renderFilteredChats);
-  document.getElementById("chatTypeFilter")?.addEventListener("change", renderFilteredChats);
-
-  // Clear Terminal Logs
-  document.getElementById("clearLogsBtn")?.addEventListener("click", async () => {
-    try {
-      await fetch("/api/logs", { method: "DELETE" });
-      const output = document.getElementById("terminalOutput");
-      if (output) output.innerHTML = "";
-      allTerminalLogs = [];
-      const badge = document.getElementById("logBadge");
-      if (badge) badge.textContent = "0";
-      showToast("Terminal logs cleared", "info");
-    } catch (e) {
-      showToast("Failed to clear logs", "error");
-    }
-  });
-
-  document.getElementById("logTypeFilter")?.addEventListener("change", renderFilteredLogs);
-
-  // Auto-Reply Save Form
-  document.getElementById("saveAutoReplyBtn")?.addEventListener("click", async () => {
-    const enabled = document.getElementById("autoReplyToggle").checked;
-    const mode = document.getElementById("autoReplyModeSelect").value;
-    const message = document.getElementById("autoReplyMessageInput").value;
-
-    try {
-      await fetch("/api/autoreply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled, mode, message }),
-      });
-
-      showToast("Auto-Reply settings saved successfully!", "success");
-      fetchAutoReplyData();
-    } catch (e) {
-      showToast("Failed to save Auto-Reply settings", "error");
-    }
-  });
-
-  // Add Trigger
-  document.getElementById("addTriggerBtn")?.addEventListener("click", async () => {
-    const phrase = document.getElementById("triggerKeywordInput").value.trim();
-    const reply = document.getElementById("triggerReplyInput").value.trim();
-    if (!phrase || !reply) return showToast("Please enter both trigger keyword and reply text", "error");
-
-    try {
-      await fetch("/api/autoreply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addTrigger: { phrase, reply } }),
-      });
-
-      document.getElementById("triggerKeywordInput").value = "";
-      document.getElementById("triggerReplyInput").value = "";
-      showToast(`Keyword trigger "${phrase}" added`, "success");
-      fetchAutoReplyData();
-    } catch (e) {
-      showToast("Failed to add trigger", "error");
-    }
-  });
-
-  // Add Target JID
-  document.getElementById("addTargetBtn")?.addEventListener("click", async () => {
-    const target = document.getElementById("targetJidInput").value.trim();
-    if (!target) return showToast("Please enter phone number or JID", "error");
-
-    try {
-      await fetch("/api/autoreply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addTarget: target }),
-      });
-
-      document.getElementById("targetJidInput").value = "";
-      showToast("Target JID added to auto-reply list", "success");
-      fetchAutoReplyData();
-    } catch (e) {
-      showToast("Failed to add target JID", "error");
-    }
-  });
-
-  // Flush Notes
-  document.getElementById("flushNotesBtn")?.addEventListener("click", async () => {
-    if (!confirm("Flush all visitor messages?")) return;
-    try {
-      await fetch("/api/autoreply/flush", { method: "POST" });
-      showToast("Visitor notes cleared", "info");
-      fetchAutoReplyData();
-    } catch (e) {
-      showToast("Failed to flush notes", "error");
-    }
-  });
-
-  // Broadcast Launch
-  document.getElementById("sendBroadcastBtn")?.addEventListener("click", launchBroadcast);
-
-  // Welcomer Save
-  document.getElementById("saveWelcomeBtn")?.addEventListener("click", saveWelcomerConfig);
-
-  // Live Persona Tester Sandbox
-  document.getElementById("sendPersonaTestBtn")?.addEventListener("click", runPersonaLiveTest);
-  document.getElementById("testPersonaPrompt")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") runPersonaLiveTest();
-  });
-
-  // Direct Message Send
-  document.getElementById("sendDirectMsgBtn")?.addEventListener("click", sendDirectMessage);
-  document.getElementById("directRecipientSelect")?.addEventListener("change", (e) => {
-    if (e.target.value) {
-      document.getElementById("directJidInput").value = e.target.value;
-    }
-  });
-
-  // Storage Cleaner Buttons
-  document.querySelectorAll(".clean-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const target = btn.dataset.target;
-      if (!confirm(`Are you sure you want to clean: ${target}?`)) return;
-      try {
-        await fetch("/api/storage/clean", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ target }),
-        });
-        fetchStorageData();
-        showToast(`Storage cleaned: ${target}`, "success");
-      } catch (e) {
-        showToast(`Failed to clean ${target}`, "error");
+      if (data.success) {
+        state.isSleeping = data.isSleeping;
+        showToast(state.isSleeping ? "PrismBot is now in Sleep Mode" : "PrismBot is now Awake", "success");
+        fetchStatus();
       }
-    });
-  });
-
-  // Command Cheat Sheet search & filter
-  document.getElementById("commandSearchInput")?.addEventListener("input", renderCommandCheatSheet);
-  document.getElementById("commandCategoryFilter")?.addEventListener("change", renderCommandCheatSheet);
-
-  // Modals event listeners
-  setupModals();
-}
-
-// ---------------------------------------------------------------------------
-// 2. STATUS & TELEMETRY
-// ---------------------------------------------------------------------------
-async function fetchStatus() {
-  try {
-    const res = await fetch("/api/status");
-    const data = await res.json();
-
-    if (data.status !== "ok") return;
-
-    // Metrics
-    const botStatus = document.getElementById("metricBotStatus");
-    if (botStatus) botStatus.textContent = data.bot.connectionState === "open" ? "Online" : "Connecting";
-
-    const totalMsgs = document.getElementById("metricTotalMsgs");
-    if (totalMsgs) totalMsgs.textContent = (data.bot.totalCachedMessages || 0).toLocaleString();
-
-    const activeChats = document.getElementById("metricActiveChats");
-    if (activeChats) activeChats.textContent = (data.bot.knownContactsCount || 0).toLocaleString();
-
-    const rss = document.getElementById("metricRss");
-    if (rss) rss.textContent = `${data.system.rssMB || 0} MB`;
-
-    const platform = document.getElementById("metricPlatform");
-    if (platform) platform.textContent = `${data.system.platform} (${data.system.arch}) • Bot v2.0`;
-
-    // Host Profile
-    if (data.bot.user) {
-      const profileName = document.getElementById("profileName");
-      if (profileName) profileName.textContent = data.bot.user.name || "PrismBot";
-      const profileJid = document.getElementById("profileJid");
-      if (profileJid) profileJid.textContent = data.bot.user.phone || data.bot.user.id;
-      const sidebarPhone = document.getElementById("sidebarBotPhone");
-      if (sidebarPhone) sidebarPhone.textContent = data.bot.user.phone || "WhatsMeow • Go";
-    }
-
-    // Detail counts
-    const sockState = document.getElementById("detailSockState");
-    if (sockState) sockState.textContent = data.bot.connectionState === "open" ? "Connected" : data.bot.connectionState;
-
-    const antiDeleteCount = document.getElementById("detailAntiDeleteCount");
-    if (antiDeleteCount) antiDeleteCount.textContent = `${data.bot.antiDeleteChatsCount || 0} chats`;
-
-    const remindersCount = document.getElementById("detailRemindersCount");
-    if (remindersCount) remindersCount.textContent = `${data.bot.remindersCount || 0} scheduled`;
-
-    const mutedCount = document.getElementById("detailMutedCount");
-    if (mutedCount) mutedCount.textContent = `${data.bot.mutedCount || 0} users`;
-
-    // RAM / Heap gauge
-    const heapText = document.getElementById("heapText");
-    if (heapText) heapText.textContent = `${data.system.heapUsedMB || 0} / ${data.system.totalMemMB || 1024} MB`;
-
-    const heapPercent = Math.min(100, Math.round(((data.system.heapUsedMB || 0) / (data.system.totalMemMB || 1024)) * 100));
-    const heapBar = document.getElementById("heapBar");
-    if (heapBar) heapBar.style.width = `${heapPercent}%`;
-
-    // Uptime
-    const uptimeMins = Math.floor((data.bot.uptimeSecs || 0) / 60);
-    const uptimeHours = Math.floor(uptimeMins / 60);
-    const formattedUptime = uptimeHours > 0 ? `${uptimeHours}h ${uptimeMins % 60}m` : `${uptimeMins}m`;
-
-    const uptimeBadge = document.getElementById("uptimeBadge");
-    if (uptimeBadge) uptimeBadge.textContent = formattedUptime;
-
-    const uptimeSub = document.getElementById("metricUptimeSub");
-    if (uptimeSub) uptimeSub.textContent = `Uptime: ${formattedUptime}`;
-
-    updateSleepUI(data.bot.isSleeping);
-  } catch (e) {
-    const dot = document.getElementById("statusDot");
-    if (dot) dot.classList.replace("bg-emerald-400", "bg-red-500");
-    const st = document.getElementById("statusText");
-    if (st) st.textContent = "Offline / Reconnecting";
-  }
-}
-
-function updateSleepUI(isSleeping) {
-  const label = document.getElementById("quickSleepLabel");
-  const badge = document.getElementById("metricSleepState");
-  if (isSleeping) {
-    if (label) label.textContent = "Wake Up";
-    if (badge) {
-      badge.textContent = "Sleeping";
-      badge.className = "text-xs text-indigo-400 font-medium";
-    }
-  } else {
-    if (label) label.textContent = "Sleep";
-    if (badge) {
-      badge.textContent = "Awake";
-      badge.className = "text-xs text-emerald-400 font-medium";
+    } catch (err) {
+      showToast(`Action failed: ${err.message}`, "danger");
     }
   }
-}
 
-// ---------------------------------------------------------------------------
-// 3. TAB DATA ROUTER
-// ---------------------------------------------------------------------------
-function fetchActiveTabData(tabId) {
-  switch (tabId) {
-    case "overview":
-      fetchStatsData();
-      break;
-    case "controls":
-      fetchChatsData();
-      break;
-    case "broadcast":
-      break;
-    case "moderation":
-      fetchMutesData();
-      break;
-    case "welcome":
-      fetchWelcomeData();
-      break;
-    case "personas":
-      fetchPersonasData();
-      break;
-    case "autoreply":
-      fetchAutoReplyData();
-      break;
-    case "analytics":
-      fetchAnalyticsData();
-      break;
-    case "audit":
-      fetchAuditData();
-      break;
-    case "storage":
-      fetchStorageData();
-      break;
-    case "notes":
-      fetchNotesData();
-      break;
-    case "reminders":
-      fetchRemindersData();
-      break;
-    case "messenger":
-      populateMessengerRecipients();
-      break;
-    case "commands":
-      renderCommandCheatSheet();
-      break;
-    case "terminal":
-      renderFilteredLogs();
-      break;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 4. ACTIVITY CHART
-// ---------------------------------------------------------------------------
-function initActivityChart() {
-  const ctx = document.getElementById("activityChart")?.getContext("2d");
-  if (!ctx) return;
-
-  activityChartInstance = new Chart(ctx, {
-    type: "doughnut",
-    data: {
-      labels: ["Text Messages", "Photos & Videos", "Voice Audio", "Stickers"],
-      datasets: [
-        {
-          data: [1, 0, 0, 0],
-          backgroundColor: ["#10b981", "#6366f1", "#f59e0b", "#ec4899"],
-          borderWidth: 0,
-          hoverOffset: 6,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "right",
-          labels: { color: "#94a3b8", font: { family: "Inter", size: 12 } },
-        },
-      },
-      cutout: "70%",
-    },
-  });
-}
-
-async function fetchStatsData() {
-  try {
-    const res = await fetch("/api/stats");
-    const stats = await res.json();
-
-    let text = 0, media = 0, audio = 0, stickers = 0, total = 0;
-
-    for (const chat of Object.values(stats)) {
-      total += chat.totalMessages || 0;
-      if (chat.breakdown) {
-        text += chat.breakdown.text || 0;
-        media += chat.breakdown.media || 0;
-        audio += chat.breakdown.audio || 0;
-        stickers += chat.breakdown.stickers || 0;
-      }
+  // 2. Audit Vault
+  async function fetchAudit() {
+    if (!el.auditTableBody) return;
+    try {
+      const res = await fetch("/api/audit/deleted");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderAuditTable(data);
+    } catch (err) {
+      renderAuditEmpty(`Failed to load audit vault: ${err.message}`);
     }
-
-    const totalEl = document.getElementById("chartTotalCount");
-    if (totalEl) totalEl.textContent = `Total: ${total.toLocaleString()} messages`;
-
-    if (activityChartInstance) {
-      activityChartInstance.data.datasets[0].data = [text || 1, media, audio, stickers];
-      activityChartInstance.update();
-    }
-  } catch (e) {}
-}
-
-// ---------------------------------------------------------------------------
-// 5. CHAT DIRECTORY & NICKNAMES
-// ---------------------------------------------------------------------------
-async function fetchChatsData() {
-  try {
-    const res = await fetch("/api/chats");
-    allCachedChats = await res.json();
-    renderFilteredChats();
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function renderFilteredChats() {
-  const query = (document.getElementById("chatSearchInput")?.value || "").toLowerCase().trim();
-  const filterType = document.getElementById("chatTypeFilter")?.value || "all";
-  const tbody = document.getElementById("chatsTableBody");
-  if (!tbody) return;
-
-  let filtered = allCachedChats.filter((c) => {
-    if (filterType === "groups" && !c.isGroup) return false;
-    if (filterType === "dms" && c.isGroup) return false;
-    if (query) {
-      const matchName = (c.name || "").toLowerCase().includes(query);
-      const matchPhone = (c.phone || "").toLowerCase().includes(query);
-      const matchJid = (c.jid || "").toLowerCase().includes(query);
-      return matchName || matchPhone || matchJid;
-    }
-    return true;
-  });
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No matching contacts or groups found.</td></tr>`;
-    return;
   }
 
-  tbody.innerHTML = filtered
-    .map((c) => {
-      const badge = c.isGroup
-        ? `<span class="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono text-[10px] border border-indigo-500/20">GROUP</span>`
-        : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] border border-emerald-500/20">DM</span>`;
+  function renderAuditTable(data) {
+    if (!el.auditTableBody) return;
+    const entries = [];
 
-      return `
-      <tr class="hover:bg-dark-700/20 transition">
-        <td class="p-4">
-          <div class="font-bold text-white flex items-center gap-2">
-            ${badge}
-            <span class="truncate max-w-[180px] sm:max-w-xs">${escapeHtml(c.name)}</span>
-            <button onclick="openRenameModal('${c.jid}', '${escapeHtml(c.name).replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-emerald-400 transition" title="Edit Name / Nickname">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        </td>
-        <td class="p-4 font-mono text-slate-400 text-[11px]">${c.phone || c.jid}</td>
-        <td class="p-4 font-mono text-slate-200">${(c.totalMessages || 0).toLocaleString()}</td>
-        <td class="p-4">
-          <button onclick="toggleAntiDelete('${c.jid}', ${!c.antiDelete})" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-            c.antiDelete ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-dark-700 text-slate-400"
-          }">
-            ${c.antiDelete ? "Enabled" : "Disabled"}
-          </button>
-        </td>
-        <td class="p-4">
-          <button onclick="toggleFeatures('${c.jid}', ${!c.features})" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-            c.features ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "bg-dark-700 text-slate-400"
-          }">
-            ${c.features ? "Active" : "Off"}
-          </button>
-        </td>
-        <td class="p-4 text-right">
-          <button onclick="quickMessageChat('${c.jid}')" class="p-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 transition" title="Send WhatsApp Message">
-            <i data-lucide="send" class="w-3.5 h-3.5 text-emerald-400"></i>
-          </button>
-        </td>
-      </tr>`;
-    })
-    .join("");
+    // The backend returns { deletedMsgs: { "chatJID": [ ... ] }, deletedVo: { ... } }
+    const grouped = (data && data.deletedMsgs) ? data.deletedMsgs : data;
 
-  if (window.lucide) lucide.createIcons({ root: tbody });
-}
-
-window.toggleAntiDelete = async (jid, enable) => {
-  try {
-    await fetch("/api/control/toggle-antidelete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jid, enable }),
-    });
-    showToast(`Anti-Delete ${enable ? "enabled" : "disabled"} for chat`, "info");
-    fetchChatsData();
-  } catch (e) {
-    showToast("Failed to toggle anti-delete", "error");
-  }
-};
-
-window.toggleFeatures = async (jid, enable) => {
-  try {
-    await fetch("/api/control/toggle-features", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jid, enable }),
-    });
-    showToast(`Interactive features ${enable ? "activated" : "disabled"} for chat`, "info");
-    fetchChatsData();
-  } catch (e) {
-    showToast("Failed to toggle features", "error");
-  }
-};
-
-window.quickMessageChat = (jid) => {
-  window.location.hash = "messenger";
-  document.querySelector('[data-tab="messenger"]')?.click();
-  const jidInput = document.getElementById("directJidInput");
-  if (jidInput) jidInput.value = jid;
-  document.getElementById("directMsgInput")?.focus();
-};
-
-// ---------------------------------------------------------------------------
-// 6. BROADCAST ANNOUNCEMENT STUDIO
-// ---------------------------------------------------------------------------
-async function launchBroadcast() {
-  const text = document.getElementById("broadcastTextInput").value.trim();
-  if (!text) return showToast("Please write your announcement message first", "error");
-
-  const targetType = document.querySelector('input[name="broadcastTarget"]:checked')?.value || "groups";
-
-  if (!confirm(`Launch announcement broadcast to: ${targetType.toUpperCase()}?`)) return;
-
-  const btn = document.getElementById("sendBroadcastBtn");
-  const progressBox = document.getElementById("broadcastProgressBox");
-  const progressBar = document.getElementById("broadcastProgressBar");
-  const progressText = document.getElementById("broadcastProgressText");
-
-  if (btn) btn.disabled = true;
-  if (progressBox) progressBox.classList.remove("hidden");
-  if (progressBar) progressBar.style.width = "40%";
-  if (progressText) progressText.textContent = "Broadcasting messages...";
-
-  try {
-    const res = await fetch("/api/message/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, targetType }),
-    });
-    const result = await res.json();
-
-    if (progressBar) progressBar.style.width = "100%";
-    if (progressText) progressText.textContent = "Completed!";
-    showToast(`Broadcast complete! Sent to ${result.sent} chats (${result.failed} failed).`, "success");
-    document.getElementById("broadcastTextInput").value = "";
-  } catch (err) {
-    showToast(`Broadcast error: ${err.message}`, "error");
-  } finally {
-    if (btn) btn.disabled = false;
-    setTimeout(() => {
-      if (progressBox) progressBox.classList.add("hidden");
-    }, 3000);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 7. MODERATION & MUTED USERS
-// ---------------------------------------------------------------------------
-async function fetchMutesData() {
-  try {
-    const res = await fetch("/api/moderation/mutes");
-    const mutes = await res.json();
-    const tbody = document.getElementById("mutedUsersTableBody");
-    if (!tbody) return;
-
-    if (!Array.isArray(mutes) || mutes.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">No users are currently muted.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = mutes
-      .map(
-        (m) => `
-      <tr class="hover:bg-dark-700/20 transition">
-        <td class="p-4 font-bold text-white">${escapeHtml(m.senderName || m.senderId)}</td>
-        <td class="p-4 font-mono text-slate-400 text-[11px]">${m.phone || m.senderId}</td>
-        <td class="p-4 text-slate-300 font-medium">${escapeHtml(m.chatName || m.jid)}</td>
-        <td class="p-4 text-right">
-          <button onclick="unmuteUser('${m.jid}', '${m.senderId}')" class="px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 text-xs font-semibold transition">
-            Unmute
-          </button>
-        </td>
-      </tr>`
-      )
-      .join("");
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-window.unmuteUser = async (jid, senderId) => {
-  if (!confirm(`Unmute this user in ${jid}?`)) return;
-  try {
-    await fetch(`/api/moderation/mute/${encodeURIComponent(jid)}/${encodeURIComponent(senderId)}`, { method: "DELETE" });
-    showToast("User unmuted successfully", "success");
-    fetchMutesData();
-  } catch (e) {
-    showToast("Failed to unmute user", "error");
-  }
-};
-
-// ---------------------------------------------------------------------------
-// 8. GROUP WELCOMER STUDIO
-// ---------------------------------------------------------------------------
-async function fetchWelcomeData() {
-  try {
-    const [welcomeRes, chatsRes] = await Promise.all([fetch("/api/welcome"), fetch("/api/chats")]);
-    const welcomeData = await welcomeRes.json();
-    const chats = await chatsRes.json();
-
-    // Populate Group select dropdown
-    const groupSelect = document.getElementById("welcomeGroupSelect");
-    const groupChats = chats.filter((c) => c.isGroup);
-
-    if (groupSelect) {
-      groupSelect.innerHTML = `<option value="">Select a group...</option>` +
-        groupChats.map((g) => `<option value="${g.jid}">${escapeHtml(g.name)} (${g.phone || g.jid})</option>`).join("");
-
-      groupSelect.onchange = (e) => {
-        const selectedJid = e.target.value;
-        if (welcomeData[selectedJid]) {
-          document.getElementById("welcomeToggle").checked = !!welcomeData[selectedJid].enabled;
-          document.getElementById("welcomeTextInput").value = welcomeData[selectedJid].text || "";
-        } else {
-          document.getElementById("welcomeToggle").checked = true;
-          document.getElementById("welcomeTextInput").value = "👋 Welcome @user to {group}!";
+    if (Array.isArray(grouped)) {
+      grouped.forEach((m) => entries.push(m));
+    } else if (typeof grouped === "object" && grouped !== null) {
+      for (const chatJID in grouped) {
+        const msgs = grouped[chatJID] || [];
+        if (Array.isArray(msgs)) {
+          msgs.forEach((m) => {
+            if (!m.chatJID && !m.chatJid) {
+              m.chatJID = chatJID;
+            }
+            entries.push(m);
+          });
         }
-      };
+      }
     }
-
-    // Render cards
-    const container = document.getElementById("welcomeCardsContainer");
-    if (!container) return;
-    const entries = Object.entries(welcomeData || {});
 
     if (entries.length === 0) {
-      container.innerHTML = `<p class="text-slate-500 col-span-full text-center py-6">No custom group welcome messages configured yet.</p>`;
+      renderAuditEmpty("No deleted messages have been intercepted yet.");
       return;
     }
 
-    container.innerHTML = entries
-      .map(
-        ([jid, cfg]) => `
-      <div class="p-4 rounded-xl bg-dark-700/40 border border-slate-700/60 space-y-2">
-        <div class="flex items-center justify-between">
-          <h5 class="font-bold text-white text-xs truncate max-w-[200px]">${escapeHtml(cfg.groupName || jid)}</h5>
-          <span class="px-2 py-0.5 rounded text-[10px] font-mono ${cfg.enabled ? "bg-teal-500/20 text-teal-400" : "bg-dark-700 text-slate-400"}">${cfg.enabled ? "Active" : "Disabled"}</span>
-        </div>
-        <p class="text-slate-300 text-xs line-clamp-2 bg-dark-800/60 p-2 rounded-lg font-sans">${escapeHtml(cfg.text)}</p>
-      </div>`
-      )
-      .join("");
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function saveWelcomerConfig() {
-  const jid = document.getElementById("welcomeGroupSelect").value;
-  const enabled = document.getElementById("welcomeToggle").checked;
-  const text = document.getElementById("welcomeTextInput").value.trim();
-
-  if (!jid) return showToast("Please select a group chat first", "error");
-  if (!text) return showToast("Please enter welcome text", "error");
-
-  try {
-    await fetch("/api/welcome", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jid, enabled, text }),
+    // Sort newest first by deletedAt or timestamp
+    entries.sort((a, b) => {
+      const timeA = new Date(a.deletedAt || a.timestamp || 0).getTime();
+      const timeB = new Date(b.deletedAt || b.timestamp || 0).getTime();
+      return timeB - timeA;
     });
 
-    showToast("Welcome configuration saved successfully!", "success");
-    fetchWelcomeData();
-  } catch (e) {
-    showToast("Failed to save welcome configuration", "error");
-  }
-}
+    el.auditTableBody.innerHTML = entries
+      .map((item) => {
+        const dateObj = item.deletedAt ? new Date(item.deletedAt) : (item.timestamp ? new Date(item.timestamp * 1000) : null);
+        const timeStr = dateObj ? dateObj.toLocaleString([], { dateStyle: "short", timeStyle: "medium" }) : "-";
+        const sender = escapeHtml(item.senderName || item.pushName || item.senderJid || item.sender || "Unknown");
+        const chat = escapeHtml(item.chatName || item.chatJid || item.chatJID || "Direct Message");
+        const type = escapeHtml(item.mediaType || "text");
+        const content = escapeHtml(item.text || item.caption || (item.localFilePath ? "Attached Media" : "Empty message"));
 
-// ---------------------------------------------------------------------------
-// 9. AI PERSONAS & LIVE TEST PLAYGROUND
-// ---------------------------------------------------------------------------
-async function fetchPersonasData() {
-  try {
-    const res = await fetch("/api/personas");
-    const data = await res.json();
-    const grid = document.getElementById("personasListGrid");
-    if (!grid) return;
-    const personas = Object.entries(data.personas || {});
+        let mediaLink = "";
+        const filePath = item.localFilePath || item.mediaUrl;
+        if (filePath) {
+          const webPath = filePath.replace(/\\/g, "/");
+          const cleanUrl = webPath.startsWith("/") ? webPath : "/" + webPath;
+          mediaLink = `<a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="btn btn-sm" style="margin-left: 8px;">View File</a>`;
+        }
 
-    if (personas.length === 0) {
-      grid.innerHTML = `<div class="p-8 text-center text-slate-500 col-span-full">No personas found.</div>`;
-      return;
-    }
-
-    grid.innerHTML = personas
-      .map(([key, p]) => {
-        const label = p.label || p.Name || p.name || key;
-        const prefix = p.prefix || p.Prefix || ("!" + key);
-        const flavor = p.flavor || p.Prompt || p.prompt || "";
-        const stickersCount = Object.keys(p.stickers || {}).length;
+        const msgId = item.id || item.messageId || "";
+        const chatJid = item.chatJid || item.chatJID || item.chat || "";
 
         return `
-        <div class="p-5 rounded-2xl glass-card-interactive space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
-                ${label.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h4 class="font-bold text-white text-sm">${escapeHtml(label)}</h4>
-                <span class="text-[11px] font-mono text-emerald-400 font-semibold">${escapeHtml(prefix)}</span>
-              </div>
-            </div>
-            <span class="text-[10px] px-2 py-0.5 rounded bg-dark-700 text-slate-400 font-mono">${stickersCount} stickers</span>
-          </div>
-          <p class="text-xs text-slate-400 line-clamp-3 leading-relaxed">${escapeHtml(flavor)}</p>
-        </div>`;
+          <tr>
+            <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap;">${timeStr}</td>
+            <td>
+              <div style="font-weight: 600;">${sender}</div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">${chat}</div>
+            </td>
+            <td><span class="badge badge-neutral">${type}</span></td>
+            <td style="font-size: 12px; line-height: 1.4;">${content} ${mediaLink}</td>
+            <td>
+              <button class="btn btn-sm btn-danger btn-delete-audit" data-chat="${escapeHtml(chatJid)}" data-id="${escapeHtml(msgId)}">Delete</button>
+            </td>
+          </tr>
+        `;
       })
       .join("");
 
-    // Populate testPersonaSelect dropdown dynamically
-    const select = document.getElementById("testPersonaSelect");
-    if (select) {
-      const currentVal = select.value;
-      select.innerHTML = personas
-        .map(([key, p]) => {
-          const label = p.label || p.Name || p.name || key;
-          const prefix = p.prefix || p.Prefix || ("!" + key);
-          return `<option value="${key}">${escapeHtml(label)} (${escapeHtml(prefix)})</option>`;
-        })
-        .join("");
-      if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
-        select.value = currentVal;
-      }
-    }
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function runPersonaLiveTest() {
-  const select = document.getElementById("testPersonaSelect");
-  const personaKey = select ? select.value : "zero2";
-  const promptInput = document.getElementById("testPersonaPrompt");
-  const prompt = promptInput ? promptInput.value.trim() : "";
-  if (!prompt) return showToast("Please type a message to test", "error");
-
-  const btn = document.getElementById("sendPersonaTestBtn");
-  const outputBox = document.getElementById("testPersonaOutputBox");
-  const answerEl = document.getElementById("testOutputAnswer");
-  const moodBadge = document.getElementById("testOutputMoodBadge");
-  const nameEl = document.getElementById("testOutputPersonaName");
-
-  if (btn) btn.disabled = true;
-  if (outputBox) outputBox.classList.remove("hidden");
-  if (answerEl) answerEl.textContent = "Generating response with Gemini 2.5 Flash...";
-
-  try {
-    const res = await fetch("/api/personas/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personaKey, prompt }),
-    });
-    const result = await res.json();
-
-    if (result.success === false) {
-      if (answerEl) answerEl.textContent = `Error: ${result.error || "Unknown AI error"}`;
-      showToast(`AI generation error: ${result.error || "Unknown error"}`, "error");
-      return;
-    }
-
-    if (nameEl && select && select.selectedOptions[0]) {
-      nameEl.textContent = select.selectedOptions[0].text;
-    }
-    if (moodBadge) {
-      moodBadge.textContent = result.mood ? `[MOOD: ${result.mood}]` : "[MOOD: standard]";
-    }
-    if (answerEl) {
-      answerEl.textContent = result.answer || "No response generated.";
-    }
-    showToast("AI response generated", "success");
-  } catch (err) {
-    if (answerEl) answerEl.textContent = `Error: ${err.message}`;
-    showToast(`AI generation error: ${err.message}`, "error");
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 10. CHAT ANALYTICS & LEADERBOARDS
-// ---------------------------------------------------------------------------
-async function fetchAnalyticsData() {
-  try {
-    const res = await fetch("/api/stats");
-    const stats = await res.json();
-    const container = document.getElementById("analyticsContainer");
-    if (!container) return;
-
-    const chats = Object.entries(stats || {});
-    if (chats.length === 0) {
-      container.innerHTML = `<div class="p-8 text-center text-slate-500 col-span-full">No chat activity statistics recorded yet.</div>`;
-      return;
-    }
-
-    container.innerHTML = chats
-      .map(([jid, chat]) => {
-        const users = Object.entries(chat.users || {})
-          .sort(([, a], [, b]) => b.count - a.count)
-          .slice(0, 5);
-
-        return `
-        <div class="p-6 rounded-2xl glass-card-interactive space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <h4 class="font-bold text-white text-sm">${escapeHtml(chat.chatName || jid)}</h4>
-              <p class="text-xs text-slate-500 font-mono">${chat.phone || jid} • ${(chat.totalMessages || 0).toLocaleString()} total msgs</p>
-            </div>
-            <button onclick="resetChatStats('${jid}')" class="px-2.5 py-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs transition">
-              Reset
-            </button>
-          </div>
-
-          <div class="space-y-2 text-xs">
-            <span class="font-semibold text-slate-400 uppercase tracking-wider text-[10px]">Top Active Members</span>
-            ${users
-              .map(([uid, u], idx) => {
-                const pct = chat.totalMessages > 0 ? ((u.count / chat.totalMessages) * 100).toFixed(1) : 0;
-                return `
-                <div class="flex items-center justify-between py-1.5 border-b border-slate-800/40">
-                  <span class="text-slate-200 font-medium">#${idx + 1} • ${escapeHtml(u.name || uid)} <span class="text-[11px] text-slate-500 font-mono">(${u.phone || uid})</span></span>
-                  <span class="font-mono text-emerald-400 font-semibold">${u.count.toLocaleString()} (${pct}%)</span>
-                </div>`;
-              })
-              .join("")}
-          </div>
-        </div>`;
-      })
-      .join("");
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-window.resetChatStats = async (jid) => {
-  if (!confirm(`Reset stats for ${jid}?`)) return;
-  try {
-    await fetch(`/api/stats/${encodeURIComponent(jid)}`, { method: "DELETE" });
-    showToast("Chat statistics reset", "info");
-    fetchAnalyticsData();
-  } catch (e) {
-    showToast("Failed to reset chat stats", "error");
-  }
-};
-
-// ---------------------------------------------------------------------------
-// 11. AUDIT VAULT (RECOVERED DELETED MESSAGES & VIEW-ONCE)
-// ---------------------------------------------------------------------------
-let auditDataCache = null;
-
-function renderDeletedMessages() {
-  const delContainer = document.getElementById("deletedMsgsList");
-  if (!delContainer || !auditDataCache) return;
-
-  const grouped = auditDataCache.deletedMsgs || {};
-  const selectedGroup = document.getElementById("deletedGroupFilter")?.value || "all";
-  const searchQuery = document.getElementById("deletedSearchInput")?.value?.toLowerCase()?.trim() || "";
-
-  let totalItems = 0;
-  const groupsToRender = [];
-
-  for (const [jid, rawItems] of Object.entries(grouped)) {
-    if (!Array.isArray(rawItems) || rawItems.length === 0) continue;
-    if (selectedGroup !== "all" && jid !== selectedGroup) continue;
-
-    const chatName = rawItems[0]?.chatName || jid.split("@")[0] || "Chat";
-    const isGroupChat = jid.endsWith("@g.us");
-
-    // Filter items by search query
-    let filteredItems = rawItems;
-    if (searchQuery) {
-      filteredItems = rawItems.filter((item) => {
-        const text = (item.text || item.message?.conversation || "").toLowerCase();
-        const sender = (item.senderName || item.pushName || item.sender || "").toLowerCase();
-        return text.includes(searchQuery) || sender.includes(searchQuery);
-      });
-    }
-
-    if (filteredItems.length > 0) {
-      totalItems += filteredItems.length;
-      groupsToRender.push({
-        jid,
-        chatName,
-        isGroupChat,
-        items: [...filteredItems].reverse(),
-      });
-    }
-  }
-
-  // Update count badge
-  const delCountBadge = document.getElementById("deletedMsgsCountBadge");
-  if (delCountBadge) delCountBadge.textContent = `${totalItems} items`;
-
-  if (groupsToRender.length === 0) {
-    delContainer.innerHTML = `<p class="text-xs text-slate-500 text-center py-6">No deleted messages match your criteria.</p>`;
-    return;
-  }
-
-  delContainer.innerHTML = groupsToRender
-    .map((grp) => {
-      const groupIcon = grp.isGroupChat ? "users" : "message-square";
-      const groupBadge = grp.isGroupChat ? "Group" : "DM";
-      const jidShort = grp.jid.length > 22 ? grp.jid.slice(0, 10) + "..." + grp.jid.slice(-10) : grp.jid;
-
-      const itemsHtml = grp.items
-        .map((item) => {
-          const time = item.deletedAt ? new Date(item.deletedAt).toLocaleTimeString() : "";
-          let mediaPreview = "";
-          if (item.localFilePath) {
-            const fileName = item.localFilePath.split(/[\\/]/).pop();
-            if (fileName.endsWith(".jpg") || fileName.endsWith(".webp")) {
-              mediaPreview = `<img src="/data/media/${fileName}" class="w-24 h-24 object-cover rounded-xl border border-slate-700 mt-2 hover:scale-105 transition cursor-pointer">`;
-            }
-            if (fileName.endsWith(".mp3")) {
-              mediaPreview = `<audio controls src="/data/media/${fileName}" class="w-full mt-2 h-8"></audio>`;
-            }
+    // Attach row delete listeners
+    el.auditTableBody.querySelectorAll(".btn-delete-audit").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const chat = btn.getAttribute("data-chat");
+        const id = btn.getAttribute("data-id");
+        if (!id) return;
+        try {
+          const deleteUrl = chat ? `/api/audit/deleted/${encodeURIComponent(chat)}/${encodeURIComponent(id)}` : `/api/audit/deleted/${encodeURIComponent(id)}`;
+          const res = await fetch(deleteUrl, { method: "DELETE" });
+          if (res.ok) {
+            showToast("Audit entry deleted", "success");
+            fetchAudit();
           }
+        } catch (err) {
+          showToast("Failed to delete entry", "danger");
+        }
+      });
+    });
+  }
 
-          return `
-          <div class="p-3 rounded-xl bg-dark-800/70 border border-slate-700/40 text-xs space-y-1.5 hover:border-slate-600/60 transition">
-            <div class="flex justify-between items-center font-semibold text-slate-300">
-              <span class="text-emerald-400 flex items-center gap-1.5">
-                <i data-lucide="user" class="w-3.5 h-3.5 text-emerald-500/70"></i>
-                ${escapeHtml(item.senderName || item.pushName || item.sender || "User")}
-                ${item.sender ? `<span class="text-slate-500 font-normal font-mono text-[10px]">(${escapeHtml(item.sender.split("@")[0])})</span>` : ""}
-              </span>
-              <div class="flex items-center gap-2">
-                <span class="text-slate-500 font-mono text-[11px]">${time}</span>
-                ${item.id ? `<button onclick="deleteAuditItem('${item.id}')" class="text-slate-500 hover:text-red-400 transition p-1" title="Delete record"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ""}
-              </div>
+  function renderAuditEmpty(msg) {
+    if (!el.auditTableBody) return;
+    el.auditTableBody.innerHTML = `
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <svg><use href="#icon-shield"/></svg>
+            <div class="empty-title">Audit Vault Empty</div>
+            <div class="empty-desc">${escapeHtml(msg)}</div>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  // 3. Chats & Contacts
+  async function fetchChats() {
+    if (!el.chatsTableBody) return;
+    try {
+      const res = await fetch("/api/chats");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      state.chats = await res.json();
+      renderChatsTable();
+    } catch (err) {
+      if (el.chatsTableBody) {
+        el.chatsTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px;">Failed to load chats: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+  }
+
+  function renderChatsTable() {
+    if (!el.chatsTableBody) return;
+    const query = (el.searchChatsInput?.value || "").toLowerCase().trim();
+
+    const filtered = state.chats.filter((c) => {
+      if (!query) return true;
+      const name = (c.name || "").toLowerCase();
+      const jid = (c.jid || "").toLowerCase();
+      const phone = (c.phone || "").toLowerCase();
+      return name.includes(query) || jid.includes(query) || phone.includes(query);
+    });
+
+    if (filtered.length === 0) {
+      el.chatsTableBody.innerHTML = `
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <svg><use href="#icon-users"/></svg>
+              <div class="empty-title">No Chats Found</div>
+              <div class="empty-desc">No active chats match your filter criteria.</div>
             </div>
-            <p class="text-slate-200 leading-relaxed break-words">${escapeHtml(item.text || item.message?.conversation || item.message?.extendedTextMessage?.text || "[Media Payload]")}</p>
-            ${mediaPreview}
-          </div>`;
-        })
-        .join("");
+          </td>
+        </tr>
+      `;
+      return;
+    }
 
+    el.chatsTableBody.innerHTML = filtered
+      .map((c) => {
+        const isGroup = !!c.isGroup;
+        const name = escapeHtml(c.name || c.phone || "Unknown");
+        const jid = escapeHtml(c.jid || "");
+        const antiDelete = !!c.antiDelete;
+        const features = !!c.featuresEnabled;
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight: 600;">${name}</div>
+            </td>
+            <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);">${jid}</td>
+            <td>
+              <span class="badge ${isGroup ? "badge-neutral" : "badge-success"}">${isGroup ? "Group" : "Direct Message"}</span>
+            </td>
+            <td>
+              <button class="btn btn-sm ${antiDelete ? "btn-success" : ""}" data-toggle-antidelete="${jid}" data-state="${antiDelete}">
+                ${antiDelete ? "Protected" : "Disabled"}
+              </button>
+            </td>
+            <td>
+              <button class="btn btn-sm ${features ? "btn-primary" : ""}" data-toggle-features="${jid}" data-state="${features}">
+                ${features ? "Active" : "Disabled"}
+              </button>
+            </td>
+            <td>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn btn-sm btn-action-send" data-jid="${jid}">Send</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    // Toggle Anti-Delete Listeners
+    el.chatsTableBody.querySelectorAll("[data-toggle-antidelete]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const jid = btn.getAttribute("data-toggle-antidelete");
+        const current = btn.getAttribute("data-state") === "true";
+        try {
+          const res = await fetch("/api/control/toggle-antidelete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jid, enable: !current }),
+          });
+          if (res.ok) {
+            showToast(`Anti-delete ${!current ? "enabled" : "disabled"} for chat`, "success");
+            fetchChats();
+          }
+        } catch (e) {
+          showToast("Failed to toggle anti-delete", "danger");
+        }
+      });
+    });
+
+    // Toggle Features Listeners
+    el.chatsTableBody.querySelectorAll("[data-toggle-features]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const jid = btn.getAttribute("data-toggle-features");
+        const current = btn.getAttribute("data-state") === "true";
+        try {
+          const res = await fetch("/api/control/toggle-features", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jid, enable: !current }),
+          });
+          if (res.ok) {
+            showToast(`Interactive features ${!current ? "enabled" : "disabled"} for chat`, "success");
+            fetchChats();
+          }
+        } catch (e) {
+          showToast("Failed to toggle features", "danger");
+        }
+      });
+    });
+
+    // Send Message Button in Row
+    el.chatsTableBody.querySelectorAll(".btn-action-send").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const jid = btn.getAttribute("data-jid");
+        if (el.sendMsgJid) el.sendMsgJid.value = jid;
+        openModal(el.modalSendMessage);
+        if (el.sendMsgContent) el.sendMsgContent.focus();
+      });
+    });
+  }
+
+  // 4. Moderation Studio
+  async function fetchMutes() {
+    if (!el.mutesTableBody) return;
+    try {
+      const res = await fetch("/api/moderation/mutes");
+      const list = await res.json();
+      renderMutesTable(list);
+    } catch (e) {
+      if (el.mutesTableBody) {
+        el.mutesTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 18px;">Failed to load mutes.</td></tr>`;
+      }
+    }
+  }
+
+  function renderMutesTable(list) {
+    if (!el.mutesTableBody) return;
+    if (!list || list.length === 0) {
+      el.mutesTableBody.innerHTML = `
+        <tr>
+          <td colspan="4">
+            <div class="empty-state">
+              <svg><use href="#icon-slash"/></svg>
+              <div class="empty-title">No Muted Users</div>
+              <div class="empty-desc">No participants are currently silenced.</div>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    el.mutesTableBody.innerHTML = list
+      .map((item) => {
+        const user = escapeHtml(item.senderName || item.phone || item.senderId || "Unknown");
+        const jid = escapeHtml(item.jid || "");
+        const senderId = escapeHtml(item.senderId || "");
+
+        return `
+          <tr>
+            <td style="font-weight: 600;">${user}</td>
+            <td style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(item.chatName || jid)}</td>
+            <td><span class="badge badge-danger">Silenced</span></td>
+            <td>
+              <button class="btn btn-sm btn-unmute" data-jid="${jid}" data-sender="${senderId}">Unmute</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    el.mutesTableBody.querySelectorAll(".btn-unmute").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const jid = btn.getAttribute("data-jid");
+        const sender = btn.getAttribute("data-sender");
+        try {
+          const res = await fetch(`/api/moderation/mute/${encodeURIComponent(jid)}/${encodeURIComponent(sender)}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            showToast("User unmuted successfully", "success");
+            fetchMutes();
+          }
+        } catch (e) {
+          showToast("Failed to unmute user", "danger");
+        }
+      });
+    });
+  }
+
+  async function fetchWelcome() {
+    try {
+      const res = await fetch("/api/welcome");
+      state.welcomeConfig = await res.json();
+      // Pick first group config or default
+      const firstKey = Object.keys(state.welcomeConfig)[0];
+      const cfg = firstKey ? state.welcomeConfig[firstKey] : null;
+
+      if (cfg) {
+        if (el.welcomeTemplateInput) el.welcomeTemplateInput.value = cfg.text || "";
+        if (el.welcomeStatusBadge) {
+          el.welcomeStatusBadge.textContent = cfg.enabled ? "Status: Active" : "Status: Disabled";
+          el.welcomeStatusBadge.className = `badge ${cfg.enabled ? "badge-success" : "badge-neutral"}`;
+        }
+      }
+    } catch (e) { }
+  }
+
+  // 5. AI Engine, Multi-Providers & Personas
+  async function fetchAIConfig() {
+    try {
+      const res = await fetch("/api/ai/config");
+      const data = await res.json();
+      if (data.success) {
+        state.aiConfig = data;
+        renderAIProviderEngine();
+        renderAIChatOverrides();
+      }
+    } catch (e) {
+      console.error("Failed to load AI config", e);
+    }
+  }
+
+  function renderAIProviderEngine() {
+    if (!state.aiConfig) return;
+    const { activeProvider, activeModel, status, recommendedModels } = state.aiConfig;
+
+    if (el.aiGlobalActiveBadge) {
+      el.aiGlobalActiveBadge.textContent = (activeProvider || "gemini").toUpperCase();
+      el.aiGlobalActiveBadge.className = activeProvider === "openrouter" ? "badge badge-primary" : "badge badge-success";
+    }
+
+    if (el.aiGlobalModelInput && !el.aiGlobalModelInput.dataset.userEdited) {
+      el.aiGlobalModelInput.value = activeModel || "";
+    }
+
+    const providers = [
+      { id: "gemini", name: "Gemini", sub: "Standard / Moderated", isReady: status?.gemini },
+      { id: "openrouter", name: "OpenRouter", sub: "Uncensored / Dolphin / Venice", isReady: status?.openrouter },
+      { id: "groq", name: "GroqCloud", sub: "Ultra-fast Llama & GPT-OSS", isReady: status?.groq },
+      { id: "ollama", name: "Ollama Local", sub: "100% Free / Unfiltered", isReady: status?.ollama },
+    ];
+
+    if (el.aiProviderGrid) {
+      el.aiProviderGrid.innerHTML = providers.map(p => {
+        const isCurrent = p.id === activeProvider;
+        const border = isCurrent ? "var(--accent)" : "var(--border-default)";
+        const bg = isCurrent ? "var(--accent-subtle)" : "var(--bg-subtle)";
+        const statusBadge = p.isReady
+          ? `<span style="font-size: 10px; color: var(--success-text); font-weight: 600;">● Ready</span>`
+          : `<span style="font-size: 10px; color: var(--danger-text); font-weight: 600;">● Key Missing</span>`;
+
+        return `
+          <div class="provider-card" data-provider="${p.id}" style="padding: 10px; border: 2px solid ${border}; background: ${bg}; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s ease;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+              <span style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${p.name}</span>
+              ${statusBadge}
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${p.sub}</div>
+          </div>
+        `;
+      }).join("");
+
+      el.aiProviderGrid.querySelectorAll(".provider-card").forEach(card => {
+        card.addEventListener("click", async () => {
+          const prov = card.dataset.provider;
+          await setGlobalProvider(prov);
+        });
+      });
+    }
+
+    // Render model presets
+    if (el.aiModelPresets) {
+      const presets = recommendedModels?.[activeProvider] || [];
+      el.aiModelPresets.innerHTML = presets.map(m => {
+        const isSelected = m === activeModel;
+        return `
+          <button type="button" class="btn btn-secondary btn-sm preset-pill" data-model="${escapeHtml(m)}" style="font-size: 10px; padding: 2px 6px; ${isSelected ? 'border-color: var(--accent); color: var(--accent);' : ''}">
+            ${escapeHtml(m.split("/").pop() || m)}
+          </button>
+        `;
+      }).join("");
+
+      el.aiModelPresets.querySelectorAll(".preset-pill").forEach(pill => {
+        pill.addEventListener("click", () => {
+          if (el.aiGlobalModelInput) {
+            el.aiGlobalModelInput.value = pill.dataset.model;
+            el.aiGlobalModelInput.dataset.userEdited = "true";
+          }
+        });
+      });
+    }
+
+    // Render Persona Style selector (Formal vs Gen-Z)
+    if (el.aiStyleGrid) {
+      const activeStyle = state.aiConfig?.activeStyle || "formal";
+      const styles = [
+        { id: "formal", name: "Formal", sub: "Articulate, polite & professional (Default)" },
+        { id: "genz", name: "Gen-Z", sub: "Savage roasts & reel brainrot" },
+        { id: "self", name: "Self", sub: "Mimics your personal texting style per chat" }
+      ];
+      el.aiStyleGrid.innerHTML = styles.map(s => {
+        const isCurrent = s.id === activeStyle;
+        const border = isCurrent ? "var(--accent)" : "var(--border-default)";
+        const bg = isCurrent ? "var(--accent-subtle)" : "var(--bg-subtle)";
+        const badge = isCurrent ? `<span style="font-size: 10px; color: var(--accent); font-weight: 600;">● Active</span>` : '';
+        return `
+          <div class="style-card" data-style="${s.id}" style="padding: 10px; border: 2px solid ${border}; background: ${bg}; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s ease;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+              <span style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${s.name}</span>
+              ${badge}
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${s.sub}</div>
+          </div>
+        `;
+      }).join("");
+
+      el.aiStyleGrid.querySelectorAll(".style-card").forEach(card => {
+        card.addEventListener("click", async () => {
+          const style = card.dataset.style;
+          await setGlobalStyle(style);
+        });
+      });
+    }
+
+    // Populate chat select in overrides card
+    if (el.aiOverrideChatSelect && state.chats && state.chats.length > 0) {
+      const currentSelected = el.aiOverrideChatSelect.value;
+      const options = ['<option value="">Select a chat...</option>'];
+      state.chats.forEach(c => {
+        const name = c.name || c.chatName || c.jid;
+        options.push(`<option value="${escapeHtml(c.jid)}" ${c.jid === currentSelected ? 'selected' : ''}>${escapeHtml(name)} (${c.isGroup ? 'Group' : 'DM'})</option>`);
+      });
+      el.aiOverrideChatSelect.innerHTML = options.join("");
+    }
+  }
+
+  function renderAIChatOverrides() {
+    if (!el.aiChatOverridesContainer || !state.aiConfig) return;
+    const overrides = state.aiConfig.chatOverrides || [];
+
+    if (overrides.length === 0) {
+      el.aiChatOverridesContainer.innerHTML = `
+        <div style="font-size: 12px; color: var(--text-secondary); padding: 8px; text-align: center; border: 1px dashed var(--border-default); border-radius: var(--radius-sm);">
+          No chat overrides configured. All chats use the global default (${(state.aiConfig.activeProvider || "gemini").toUpperCase()}).
+        </div>
+      `;
+      return;
+    }
+
+    el.aiChatOverridesContainer.innerHTML = overrides.map(item => {
+      const modelDisplay = item.model ? `<code style="font-size: 10px;">${escapeHtml(item.model.split('/').pop() || item.model)}</code>` : '<span style="color:var(--text-secondary); font-size: 11px;">Default model</span>';
+      const styleDisplay = item.style === "genz"
+        ? `<span class="badge" style="font-size: 10px; padding: 1px 4px; background: rgba(236,72,153,0.15); color: #ec4899; border: 1px solid rgba(236,72,153,0.3);">Gen-Z</span>`
+        : (item.style === "self"
+          ? `<span class="badge" style="font-size: 10px; padding: 1px 4px; background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);">Self</span>`
+          : (item.style === "formal"
+            ? `<span class="badge" style="font-size: 10px; padding: 1px 4px; background: rgba(59,130,246,0.15); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3);">Formal</span>`
+            : ''));
       return `
-      <div class="rounded-2xl bg-dark-700/30 border border-slate-700/50 p-3.5 space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-700/40 pb-2.5">
-          <div class="flex items-center gap-2 min-w-0">
-            <div class="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <i data-lucide="${groupIcon}" class="w-4 h-4"></i>
-            </div>
-            <div class="min-w-0">
-              <h5 class="font-bold text-white text-xs truncate">${escapeHtml(grp.chatName)}</h5>
-              <p class="text-[10px] text-slate-500 font-mono truncate">${escapeHtml(jidShort)}</p>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-sm); font-size: 12px;">
+          <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px;">
+            <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(item.chatName || item.chatJid)}</div>
+            <div style="font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span class="badge badge-primary" style="font-size: 10px; padding: 1px 4px;">${escapeHtml(item.provider.toUpperCase())}</span>
+              ${styleDisplay}
+              ${modelDisplay}
             </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono font-semibold">${grp.items.length} msgs</span>
-            <button onclick="deleteAuditChat('${grp.jid}')" class="text-slate-500 hover:text-red-400 transition p-1" title="Clear all deleted logs for this group">
-              <i data-lucide="folder-x" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
+          <button class="btn btn-secondary btn-sm btn-delete-override" data-jid="${escapeHtml(item.chatJid)}" style="font-size: 11px; padding: 2px 8px;" title="Reset to global default">Reset</button>
         </div>
-        <div class="space-y-2.5">
-          ${itemsHtml}
-        </div>
-      </div>`;
-    })
-    .join("");
+      `;
+    }).join("");
 
-  if (window.lucide) lucide.createIcons();
-}
+    el.aiChatOverridesContainer.querySelectorAll(".btn-delete-override").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const jid = btn.dataset.jid;
+        await deleteChatOverride(jid);
+      });
+    });
+  }
 
-async function fetchAuditData() {
-  try {
-    const res = await fetch("/api/audit/deleted");
-    const data = await res.json();
-    auditDataCache = data;
-
-    const voContainer = document.getElementById("viewOnceList");
-    const allVo = [];
-
-    // Calculate groups and total items
-    const grouped = data.deletedMsgs || {};
-    const groupSelect = document.getElementById("deletedGroupFilter");
-    const currentSelected = groupSelect ? groupSelect.value : "all";
-
-    let totalDeletedCount = 0;
-    const groupOptions = [];
-
-    for (const [jid, items] of Object.entries(grouped)) {
-      if (Array.isArray(items) && items.length > 0) {
-        totalDeletedCount += items.length;
-        const chatName = items[0]?.chatName || jid.split("@")[0] || "Chat";
-        groupOptions.push({ jid, chatName, count: items.length });
-      }
-    }
-
-    // Update group selector options
-    if (groupSelect) {
-      groupSelect.innerHTML = `<option value="all">📁 All Groups & Chats (${totalDeletedCount})</option>` +
-        groupOptions
-          .map((g) => `<option value="${escapeHtml(g.jid)}">👥 ${escapeHtml(g.chatName)} (${g.count})</option>`)
-          .join("");
-      if (currentSelected && (currentSelected === "all" || groupOptions.some((g) => g.jid === currentSelected))) {
-        groupSelect.value = currentSelected;
-      }
-    }
-
-    const delGroupsCountBadge = document.getElementById("deletedGroupsCountBadge");
-    if (delGroupsCountBadge) delGroupsCountBadge.textContent = `${groupOptions.length} groups`;
-
-    // Render grouped deleted messages
-    renderDeletedMessages();
-
-    // View-Once list
-    for (const [jid, items] of Object.entries(data.deletedVo || {})) {
-      if (Array.isArray(items)) {
-        items.forEach((item) => allVo.push({ ...item, jid }));
-      }
-    }
-
-    const voCountBadge = document.getElementById("viewOnceCountBadge");
-    if (voCountBadge) voCountBadge.textContent = `${allVo.length} items`;
-
-    if (voContainer) {
-      if (allVo.length === 0) {
-        voContainer.innerHTML = `<p class="text-xs text-slate-500 text-center py-6">No View-Once media intercepted.</p>`;
+  async function setGlobalProvider(provider) {
+    try {
+      const res = await fetch("/api/ai/provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`AI Provider switched to ${provider.toUpperCase()}`, "success");
+        if (el.aiGlobalModelInput) {
+          delete el.aiGlobalModelInput.dataset.userEdited;
+        }
+        await fetchAIConfig();
       } else {
-        voContainer.innerHTML = allVo
-          .reverse()
-          .slice(0, 30)
-          .map((item) => {
-            const time = item.deletedAt ? new Date(item.deletedAt).toLocaleTimeString() : "";
-            let mediaPreview = "";
-            if (item.localFilePath) {
-              const fileName = item.localFilePath.split(/[\\/]/).pop();
-              if (fileName.endsWith(".jpg") || fileName.endsWith(".webp")) {
-                mediaPreview = `<img src="/data/media/${fileName}" class="w-24 h-24 object-cover rounded-xl border border-slate-700 mt-2 hover:scale-105 transition cursor-pointer">`;
-              }
-              if (fileName.endsWith(".mp3")) {
-                mediaPreview = `<audio controls src="/data/media/${fileName}" class="w-full mt-2 h-8"></audio>`;
-              }
-            }
-
-            return `
-            <div class="p-3.5 rounded-xl bg-dark-700/40 border border-slate-700/50 text-xs space-y-1.5">
-              <div class="flex justify-between items-center font-semibold text-slate-300">
-                <span class="text-indigo-400">👤 ${escapeHtml(item.senderName || item.sender || "User")} <span class="text-slate-500 font-normal font-mono">in ${escapeHtml(item.chatName || item.jid || "Chat")}</span></span>
-                <span class="text-slate-500 font-mono text-[11px]">${time}</span>
-              </div>
-              ${mediaPreview}
-            </div>`;
-          })
-          .join("");
+        showToast(data.error || "Failed to switch provider", "error");
       }
+    } catch (e) {
+      showToast(e.message, "error");
     }
-
-    // Attach filter listeners once
-    if (groupSelect && !groupSelect.dataset.hasListener) {
-      groupSelect.dataset.hasListener = "true";
-      groupSelect.addEventListener("change", renderDeletedMessages);
-    }
-    const searchInput = document.getElementById("deletedSearchInput");
-    if (searchInput && !searchInput.dataset.hasListener) {
-      searchInput.dataset.hasListener = "true";
-      searchInput.addEventListener("input", renderDeletedMessages);
-    }
-
-    if (window.lucide) lucide.createIcons();
-  } catch (e) {
-    console.error(e);
   }
-}
 
-window.deleteAuditItem = async (id) => {
-  if (!confirm("Remove this entry from the audit vault?")) return;
-  try {
-    const res = await fetch(`/api/audit/deleted/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (res.ok) {
-      showToast("Audit item removed", "info");
-      fetchAuditData();
-    } else {
-      showToast("Failed to remove item", "error");
+  async function saveGlobalModel() {
+    const model = el.aiGlobalModelInput?.value?.trim();
+    if (!model) {
+      showToast("Please enter a model name", "warning");
+      return;
     }
-  } catch (e) {
-    showToast("Error deleting item", "error");
-  }
-};
-
-window.deleteAuditChat = async (chatJID) => {
-  if (!confirm(`Clear all deleted message records for this group?`)) return;
-  try {
-    const res = await fetch(`/api/audit/deleted/chat/${encodeURIComponent(chatJID)}`, { method: "DELETE" });
-    if (res.ok) {
-      showToast("Group deleted audit records cleared", "info");
-      fetchAuditData();
-    } else {
-      showToast("Failed to clear group records", "error");
+    try {
+      const res = await fetch("/api/ai/model", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Active model updated", "success");
+        delete el.aiGlobalModelInput.dataset.userEdited;
+        await fetchAIConfig();
+      } else {
+        showToast(data.error || "Failed to update model", "error");
+      }
+    } catch (e) {
+      showToast(e.message, "error");
     }
-  } catch (e) {
-    showToast("Error clearing group records", "error");
   }
-};
 
-// ---------------------------------------------------------------------------
-// 12. STORAGE CLEANER & NOTES
-// ---------------------------------------------------------------------------
-async function fetchStorageData() {
-  try {
-    const res = await fetch("/api/storage");
-    const data = await res.json();
-
-    const media = document.getElementById("storageMedia");
-    if (media) media.textContent = data.media?.formatted || "0 B";
-
-    const stickers = document.getElementById("storageStickers");
-    if (stickers) stickers.textContent = data.stickers?.formatted || "0 B";
-
-    const deleted = document.getElementById("storageDeleted");
-    if (deleted) deleted.textContent = data.deletedMsgs?.formatted || "0 B";
-
-    const total = document.getElementById("storageTotal");
-    if (total) total.textContent = data.total?.formatted || "0 B";
-  } catch (e) {
-    console.error(e);
+  async function setGlobalStyle(style) {
+    try {
+      const res = await fetch("/api/ai/style", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ style })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Default Persona Style set to ${style.toUpperCase()}`, "success");
+        await fetchAIConfig();
+      } else {
+        showToast(data.error || "Failed to set style", "error");
+      }
+    } catch (e) {
+      showToast(e.message, "error");
+    }
   }
-}
 
-async function fetchNotesData() {
-  try {
-    const res = await fetch("/api/notes");
-    const notes = await res.json();
-    const container = document.getElementById("notesContainer");
-    if (!container) return;
-    const keys = Object.keys(notes || {});
+  async function saveChatOverride() {
+    const chatJid = el.aiOverrideChatSelect?.value;
+    const provider = el.aiOverrideProviderSelect?.value;
+    const model = el.aiOverrideModelInput?.value?.trim();
+    const style = el.aiOverrideStyleSelect?.value;
+
+    if (!chatJid) {
+      showToast("Please select a target chat", "warning");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/ai/chat-override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatJid, provider, model, style })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Override saved for chat`, "success");
+        if (el.aiOverrideModelInput) el.aiOverrideModelInput.value = "";
+        await fetchAIConfig();
+      } else {
+        showToast(data.error || "Failed to save override", "error");
+      }
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  }
+
+  async function deleteChatOverride(chatJid) {
+    try {
+      const res = await fetch(`/api/ai/chat-override?chatJid=${encodeURIComponent(chatJid)}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Chat override removed. Now using global default.", "info");
+        await fetchAIConfig();
+      }
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  }
+
+  async function fetchPersonas() {
+    if (!el.personasListContainer) return;
+    try {
+      const res = await fetch("/api/personas");
+      const data = await res.json();
+      state.personas = data.personas || {};
+      renderPersonasList();
+    } catch (e) { }
+  }
+
+  function renderPersonasList() {
+    if (!el.personasListContainer) return;
+    const keys = Object.keys(state.personas);
 
     if (keys.length === 0) {
-      container.innerHTML = `<p class="text-slate-500 py-6 text-center font-sans">No virtual notes stored yet.</p>`;
+      el.personasListContainer.innerHTML = `<div class="empty-state"><div class="empty-title">No Personas Loaded</div></div>`;
       return;
     }
 
-    container.innerHTML = keys
-      .map((key) => {
-        const item = notes[key];
-        const typeBadge = item.mediaType && item.mediaType !== "TXT"
-          ? `<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] border border-indigo-500/30 font-semibold">${escapeHtml(item.mediaType)}</span>`
-          : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] border border-emerald-500/30 font-semibold">NOTE</span>`;
-
-        const displayContent = item.content || item.fileName || (item.hasMedia ? "[Media File]" : "(empty)");
+    el.personasListContainer.innerHTML = keys
+      .map((k) => {
+        const p = state.personas[k];
+        const name = escapeHtml(p.name || p.label || k);
+        const prefix = escapeHtml(p.prefix || `!${k}`);
+        const prompt = escapeHtml(p.prompt || p.flavor || "");
 
         return `
-        <div class="p-3.5 rounded-xl bg-dark-700/30 border border-slate-700/40 flex items-center justify-between font-mono gap-3 hover:border-slate-600 transition">
-          <div class="space-y-1 min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              ${typeBadge}
-              <span class="text-emerald-400 font-semibold truncate text-xs">${escapeHtml(key)}</span>
+          <div style="padding: 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <span style="font-weight: 600; font-size: 13px;">${name}</span>
+              <code style="font-size: 11px; background: var(--bg-subtle); padding: 2px 6px; border-radius: var(--radius-sm);">${prefix}</code>
             </div>
-            <p class="text-[12px] text-slate-300 font-sans truncate max-w-2xl">${escapeHtml(displayContent)}</p>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4;">${prompt}</div>
           </div>
-          <button onclick="deleteNote('${key.replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-red-400 transition p-1.5 rounded-lg hover:bg-red-500/10 flex-shrink-0" title="Delete note">
-            <i data-lucide="trash" class="w-3.5 h-3.5"></i>
-          </button>
-        </div>`;
+        `;
       })
       .join("");
 
-    if (window.lucide) lucide.createIcons({ root: container });
-  } catch (e) {
-    console.error(e);
+    // Populate playground dropdown
+    if (el.playgroundPersonaSelect) {
+      el.playgroundPersonaSelect.innerHTML = keys
+        .map((k) => `<option value="${escapeHtml(k)}">${escapeHtml(state.personas[k].name || k)}</option>`)
+        .join("");
+    }
   }
-}
 
-window.deleteNote = async (path) => {
-  if (!confirm(`Delete note: ${path}?`)) return;
-  try {
-    await fetch("/api/notes", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path }),
-    });
-    showToast(`Deleted note: ${path}`, "info");
-    fetchNotesData();
-  } catch (e) {
-    showToast("Failed to delete note", "error");
-  }
-};
+  async function testPersona() {
+    const personaKey = el.playgroundPersonaSelect?.value;
+    const prompt = el.playgroundPromptInput?.value?.trim();
 
-// ---------------------------------------------------------------------------
-// 13. REMINDERS & SCHEDULER
-// ---------------------------------------------------------------------------
-async function fetchRemindersData() {
-  try {
-    const res = await fetch("/api/reminders");
-    const reminders = await res.json();
-    const tbody = document.getElementById("remindersTableBody");
-    if (!tbody) return;
-
-    if (!Array.isArray(reminders) || reminders.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">No reminders currently scheduled.</td></tr>`;
+    if (!prompt) {
+      showToast("Please enter a test prompt", "warning");
       return;
     }
 
-    const now = Date.now();
-    tbody.innerHTML = reminders
-      .map((r) => {
-        const diffMins = Math.max(0, Math.round((r.targetTime - now) / 60000));
-        return `
-        <tr class="hover:bg-dark-700/20 transition">
-          <td class="p-4 font-medium text-white">${escapeHtml(r.text)}</td>
-          <td class="p-4 text-slate-300">${escapeHtml(r.chatName || r.jid)}</td>
-          <td class="p-4 font-mono text-emerald-400 font-semibold">${diffMins} min(s)</td>
-          <td class="p-4 text-right">
-            <button onclick="deleteReminder('${r.id}')" class="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition" title="Cancel reminder">
-              <i data-lucide="trash" class="w-3.5 h-3.5"></i>
-            </button>
+    if (el.playgroundOutput) {
+      el.playgroundOutput.textContent = "Generating dialogue response from Gemini...";
+    }
+
+    try {
+      const res = await fetch("/api/personas/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaKey, prompt }),
+      });
+      const data = await res.json();
+      if (data.success && el.playgroundOutput) {
+        el.playgroundOutput.textContent = data.answer || "No response received.";
+      } else {
+        if (el.playgroundOutput) {
+          el.playgroundOutput.textContent = `Error: ${data.error || "Failed to generate reply"}`;
+        }
+      }
+    } catch (e) {
+      if (el.playgroundOutput) {
+        el.playgroundOutput.textContent = `Network error: ${e.message}`;
+      }
+    }
+  }
+
+  // ==========================================================================
+  // Daily Status Reports & Group Deadlines
+  // ==========================================================================
+  async function fetchReportsData() {
+    // Set default date if unset
+    if (el.reportDatePicker && !el.reportDatePicker.value) {
+      el.reportDatePicker.value = new Date().toISOString().split("T")[0];
+    }
+    const targetDate = el.reportDatePicker?.value || new Date().toISOString().split("T")[0];
+
+    await Promise.all([
+      fetchDailyReports(targetDate),
+      fetchReportLeaderboard(),
+      fetchReportGroups(),
+      fetchDeadlines(),
+    ]);
+    updatePFPPreview();
+  }
+
+  async function fetchDailyReports(dateStr) {
+    if (!el.reportsTableBody) return;
+    try {
+      const res = await fetch(`/api/reports?date=${encodeURIComponent(dateStr)}`);
+      const data = await res.json();
+      const reports = data.reports || [];
+
+      if (el.reportsCountBadge) {
+        el.reportsCountBadge.textContent = reports.length;
+      }
+
+      if (reports.length === 0) {
+        el.reportsTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 16px;">No achievements submitted yet for ${escapeHtml(dateStr)}.</td></tr>`;
+        return;
+      }
+
+      el.reportsTableBody.innerHTML = reports
+        .map((r) => {
+          const time = r.timestamp ? new Date(r.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+          const name = escapeHtml(r.senderName || r.userJid);
+          const content = escapeHtml(r.content);
+          return `
+            <tr>
+              <td style="font-weight: 600; white-space: nowrap;">${name}</td>
+              <td style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${time}</td>
+              <td style="font-size: 12px; line-height: 1.4;">${content}</td>
+            </tr>
+          `;
+        })
+        .join("");
+    } catch (e) {
+      el.reportsTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--color-danger);">Failed to load reports: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  async function generateAISummary(dateStr) {
+    if (!el.reportSummaryContent) return;
+    el.reportSummaryContent.textContent = "Synthesizing Daily Status Report with Gemini AI...";
+    if (el.reportSummaryStatusBadge) {
+      el.reportSummaryStatusBadge.textContent = "Synthesizing...";
+      el.reportSummaryStatusBadge.className = "badge badge-accent";
+    }
+
+    try {
+      const res = await fetch("/api/reports/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateStr }),
+      });
+      const data = await res.json();
+      if (data.summary) {
+        el.reportSummaryContent.textContent = data.summary;
+        if (el.reportSummaryStatusBadge) {
+          el.reportSummaryStatusBadge.textContent = "Generated";
+          el.reportSummaryStatusBadge.className = "badge badge-success";
+        }
+        showToast("AI Summary generated successfully!", "success");
+      } else {
+        el.reportSummaryContent.textContent = `Failed: ${data.error || "Unknown error"}`;
+        if (el.reportSummaryStatusBadge) {
+          el.reportSummaryStatusBadge.textContent = "Error";
+          el.reportSummaryStatusBadge.className = "badge badge-danger";
+        }
+      }
+    } catch (e) {
+      el.reportSummaryContent.textContent = `Network error: ${e.message}`;
+    }
+  }
+
+  async function fetchReportLeaderboard() {
+    if (!el.leaderboardMiniBody) return;
+    try {
+      const res = await fetch("/api/reports/leaderboard");
+      const list = await res.json();
+
+      if (!list || list.length === 0) {
+        el.leaderboardMiniBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 12px;">No participants yet.</td></tr>`;
+        return;
+      }
+
+      el.leaderboardMiniBody.innerHTML = list
+        .slice(0, 8)
+        .map((u, i) => {
+          let rank = `#${i + 1}`;
+          const name = escapeHtml(u.name || u.userJid.split("@")[0]);
+          return `
+            <tr>
+              <td style="font-weight: 700; width: 28px;">${rank}</td>
+              <td style="font-weight: 500;">${name}</td>
+              <td style="font-weight: 600; color: var(--accent-primary);">${u.points}</td>
+              <td><span class="badge badge-accent" style="font-size: 10px;"><svg class="icon-inline" style="width: 10px; height: 10px;"><use href="#icon-zap"/></svg> ${u.currentStreak}d</span></td>
+            </tr>
+          `;
+        })
+        .join("");
+    } catch (e) {
+      el.leaderboardMiniBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--color-danger);">Error loading leaderboard</td></tr>`;
+    }
+  }
+
+  async function fetchReportGroups() {
+    if (!el.reportGroupsList) return;
+    try {
+      const res = await fetch("/api/reports/groups");
+      const data = await res.json();
+      const groups = data.groups || [];
+
+      if (groups.length === 0) {
+        el.reportGroupsList.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">No target broadcast groups configured yet.</span>`;
+        return;
+      }
+
+      el.reportGroupsList.innerHTML = groups
+        .map((g) => {
+          const clean = escapeHtml(g);
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: var(--bg-surface); border: 1px solid var(--border-muted); border-radius: var(--radius-sm); font-size: 11px;">
+              <span style="font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; max-width: 170px;">${clean}</span>
+              <button class="btn btn-sm btn-danger btn-remove-report-group" data-jid="${clean}" style="padding: 2px 6px; font-size: 10px;">✕</button>
+            </div>
+          `;
+        })
+        .join("");
+    } catch (e) {
+      el.reportGroupsList.innerHTML = `<span style="color: var(--color-danger); font-size: 11px;">Error loading groups</span>`;
+    }
+  }
+
+  async function addReportGroup(jid) {
+    if (!jid) return;
+    try {
+      const res = await fetch("/api/reports/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupJid: jid }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Added target report group", "success");
+        if (el.newReportGroupInput) el.newReportGroupInput.value = "";
+        fetchReportGroups();
+      } else {
+        showToast(data.error || "Failed to add group", "danger");
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, "danger");
+    }
+  }
+
+  async function removeReportGroup(jid) {
+    if (!jid) return;
+    try {
+      const res = await fetch(`/api/reports/groups?groupJid=${encodeURIComponent(jid)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Removed target report group", "success");
+        fetchReportGroups();
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, "danger");
+    }
+  }
+
+  async function fetchDeadlines() {
+    if (!el.deadlinesTableBody) return;
+    try {
+      const res = await fetch("/api/deadlines");
+      const list = await res.json();
+
+      if (!list || list.length === 0) {
+        el.deadlinesTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">No group deadline countdowns active. Set one above!</td></tr>`;
+        return;
+      }
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      el.deadlinesTableBody.innerHTML = list
+        .map((d) => {
+          const target = new Date(d.targetDate);
+          const diffDays = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+          let statusBadge = `<span class="badge badge-accent">${diffDays} days left</span>`;
+          if (diffDays === 1) {
+            statusBadge = `<span class="badge badge-warning">1 day left</span>`;
+          } else if (diffDays === 0) {
+            statusBadge = `<span class="badge badge-danger">D-Day Today</span>`;
+          } else if (diffDays < 0) {
+            statusBadge = `<span class="badge badge-neutral">Completed</span>`;
+          }
+
+          const jid = escapeHtml(d.groupJid);
+          const title = escapeHtml(d.title);
+          const date = escapeHtml(d.targetDate);
+
+          return `
+            <tr>
+              <td style="font-family: var(--font-mono); font-size: 11px;">${jid}</td>
+              <td style="font-weight: 600;">${title}</td>
+              <td style="font-size: 12px;">${date}</td>
+              <td>${statusBadge}</td>
+              <td style="display: flex; gap: 6px;">
+                <button class="btn btn-sm btn-primary btn-update-group-pfp" data-jid="${jid}" title="Trigger instant WhatsApp PFP update">Update PFP</button>
+                <button class="btn btn-sm btn-danger btn-delete-deadline" data-jid="${jid}" title="Remove countdown">Remove</button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    } catch (e) {
+      el.deadlinesTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-danger);">Failed to load deadlines: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  function updatePFPPreview() {
+    if (!el.pfpLivePreviewImg) return;
+    const title = el.pfpTitleInput?.value?.trim() || "Goal Deadline";
+    const date = el.pfpDateInput?.value || new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0];
+    el.pfpLivePreviewImg.src = `/api/deadlines/preview?title=${encodeURIComponent(title)}&date=${encodeURIComponent(date)}&_t=${Date.now()}`;
+  }
+
+  async function saveDeadline() {
+    const groupJid = el.pfpGroupJidInput?.value?.trim();
+    const targetDate = el.pfpDateInput?.value;
+    const title = el.pfpTitleInput?.value?.trim() || "Goal Countdown";
+
+    if (!groupJid || !targetDate) {
+      showToast("Group JID and Target Date are required", "warning");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/deadlines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupJid,
+          targetDate,
+          title,
+          updateNow: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Group countdown deadline saved and icon update triggered!", "success");
+        fetchDeadlines();
+      } else {
+        showToast(data.error || "Failed to save deadline", "danger");
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, "danger");
+    }
+  }
+
+  async function forceUpdateGroupPFP(jid) {
+    if (!jid) return;
+    try {
+      showToast(`Updating WhatsApp group icon for ${jid}...`, "warning");
+      const res = await fetch("/api/deadlines/updatepfp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupJid: jid }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Group profile picture updated successfully on WhatsApp!", "success");
+      } else {
+        showToast(data.error || "WhatsApp PFP update failed", "danger");
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, "danger");
+    }
+  }
+
+  async function removeDeadline(jid) {
+    if (!jid) return;
+    try {
+      const res = await fetch(`/api/deadlines?groupJid=${encodeURIComponent(jid)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Group deadline countdown removed", "success");
+        fetchDeadlines();
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, "danger");
+    }
+  }
+
+  // 6. Auto-Reply
+  async function fetchAutoReply() {
+    try {
+      const res = await fetch("/api/autoreply");
+      const data = await res.json();
+      if (el.badgeAutoReplyState) {
+        el.badgeAutoReplyState.textContent = data.enabled ? "State: Active" : "State: Disabled";
+        el.badgeAutoReplyState.className = `badge ${data.enabled ? "badge-success" : "badge-neutral"}`;
+      }
+      if (el.selectAutoReplyMode) el.selectAutoReplyMode.value = data.mode || "keyword";
+
+      // Render triggers table
+      if (el.triggersTableBody) {
+        const triggers = data.triggers || {};
+        const keys = Object.keys(triggers);
+        if (keys.length === 0) {
+          el.triggersTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 16px; color: var(--text-muted);">No keyword triggers configured.</td></tr>`;
+        } else {
+          el.triggersTableBody.innerHTML = keys
+            .map((k) => `
+              <tr>
+                <td><code>${escapeHtml(k)}</code></td>
+                <td>${escapeHtml(triggers[k])}</td>
+                <td><span class="badge badge-success">Active</span></td>
+              </tr>
+            `)
+            .join("");
+        }
+      }
+    } catch (e) { }
+  }
+
+  // 7. Reminders
+  async function fetchReminders() {
+    if (!el.remindersTableBody) return;
+    try {
+      const res = await fetch("/api/reminders");
+      const list = await res.json();
+      renderRemindersTable(list);
+    } catch (e) {
+      if (el.remindersTableBody) {
+        el.remindersTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 18px;">Failed to load reminders.</td></tr>`;
+      }
+    }
+  }
+
+  function renderRemindersTable(list) {
+    if (!el.remindersTableBody) return;
+    if (!list || list.length === 0) {
+      el.remindersTableBody.innerHTML = `
+        <tr>
+          <td colspan="5">
+            <div class="empty-state">
+              <svg><use href="#icon-clock"/></svg>
+              <div class="empty-title">No Active Reminders</div>
+              <div class="empty-desc">Schedule one using the button above or via chat command !remind.</div>
+            </div>
           </td>
-        </tr>`;
+        </tr>
+      `;
+      return;
+    }
+
+    el.remindersTableBody.innerHTML = list
+      .map((item) => {
+        const due = item.targetTime
+          ? new Date(item.targetTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "Soon";
+        const id = escapeHtml(item.id || "");
+        const chat = escapeHtml(item.chatName || item.jid || "Direct Message");
+        const text = escapeHtml(item.text || "");
+
+        return `
+          <tr>
+            <td style="font-family: var(--font-mono); font-size: 11px;">${id}</td>
+            <td>${chat}</td>
+            <td><span class="badge badge-warning">${due}</span></td>
+            <td>${text}</td>
+            <td>
+              <button class="btn btn-sm btn-danger btn-cancel-remind" data-id="${id}">Cancel</button>
+            </td>
+          </tr>
+        `;
       })
       .join("");
 
-    if (window.lucide) lucide.createIcons({ root: tbody });
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-window.deleteReminder = async (id) => {
-  try {
-    await fetch(`/api/reminders/${encodeURIComponent(id)}`, { method: "DELETE" });
-    showToast("Reminder cancelled", "info");
-    fetchRemindersData();
-  } catch (e) {
-    showToast("Failed to cancel reminder", "error");
-  }
-};
-
-// ---------------------------------------------------------------------------
-// 14. DIRECT MESSENGER
-// ---------------------------------------------------------------------------
-async function populateMessengerRecipients() {
-  try {
-    const res = await fetch("/api/chats");
-    const chats = await res.json();
-    const select = document.getElementById("directRecipientSelect");
-    if (!select) return;
-
-    select.innerHTML = `<option value="">-- Choose from known contacts or type below --</option>` +
-      chats.map((c) => `<option value="${c.jid}">${escapeHtml(c.name)} (${c.phone || c.jid})</option>`).join("");
-  } catch (e) {}
-}
-
-async function sendDirectMessage() {
-  const jid = document.getElementById("directJidInput").value.trim();
-  const text = document.getElementById("directMsgInput").value.trim();
-
-  if (!jid || !text) return showToast("Please enter both recipient and message text", "error");
-
-  try {
-    const res = await fetch("/api/message/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jid, text }),
+    el.remindersTableBody.querySelectorAll(".btn-cancel-remind").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        try {
+          const res = await fetch(`/api/reminders/${encodeURIComponent(id)}`, { method: "DELETE" });
+          if (res.ok) {
+            showToast("Reminder cancelled", "success");
+            fetchReminders();
+          }
+        } catch (e) {
+          showToast("Failed to cancel reminder", "danger");
+        }
+      });
     });
-    const data = await res.json();
-
-    if (data.success) {
-      showToast(`Message successfully sent to ${jid}!`, "success");
-      document.getElementById("directMsgInput").value = "";
-    } else {
-      showToast(`Send failed: ${data.error}`, "error");
-    }
-  } catch (err) {
-    showToast(`Send error: ${err.message}`, "error");
   }
-}
 
-// ---------------------------------------------------------------------------
-// 15. LIVE SSE TERMINAL LOGS WITH FILTERING
-// ---------------------------------------------------------------------------
-function initSseLogStream() {
-  const evtSource = new EventSource("/api/logs/stream");
-
-  evtSource.onmessage = (event) => {
+  // 8. Notes
+  async function fetchNotes() {
+    if (!el.notesTreeContainer) return;
     try {
-      const data = JSON.parse(event.data);
-      if (data.type === "INIT" && Array.isArray(data.logs)) {
-        allTerminalLogs = data.logs;
-      } else if (data.message) {
-        allTerminalLogs.push(data);
+      const res = await fetch("/api/notes");
+      const data = await res.json();
+      renderNotesTree(data);
+    } catch (e) {
+      if (el.notesTreeContainer) {
+        el.notesTreeContainer.innerHTML = `<div style="color: var(--danger-text);">Failed to load notes tree.</div>`;
       }
-      renderFilteredLogs();
-    } catch (e) {}
-  };
-
-  evtSource.onerror = () => {
-    evtSource.close();
-    setTimeout(initSseLogStream, 3000);
-  };
-}
-
-function renderFilteredLogs() {
-  const output = document.getElementById("terminalOutput");
-  if (!output) return;
-
-  const filter = document.getElementById("logTypeFilter")?.value || "all";
-  let logs = allTerminalLogs;
-
-  if (filter !== "all") {
-    logs = logs.filter((l) => l.type === filter);
+    }
   }
 
-  const badge = document.getElementById("logBadge");
-  if (badge) badge.textContent = logs.length.toString();
+  function renderNotesTree(tree) {
+    if (!el.notesTreeContainer) return;
+    if (!tree || Object.keys(tree).length === 0) {
+      el.notesTreeContainer.innerHTML = `
+        <div class="empty-state">
+          <svg><use href="#icon-folder"/></svg>
+          <div class="empty-title">Notes Vault Empty</div>
+          <div class="empty-desc">Create notes via chat command !addnote &lt;path&gt; &lt;text&gt;.</div>
+        </div>
+      `;
+      return;
+    }
 
-  output.innerHTML = logs
-    .slice(-100)
-    .reverse()
-    .map((entry) => {
-      const time = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : "";
-      const typeColors = {
-        MSG: "text-emerald-400",
-        CMD: "text-amber-400",
-        AI: "text-purple-400",
-        SYSTEM: "text-indigo-400",
-        ERROR: "text-red-400",
-        SUCCESS: "text-teal-400",
+    let html = `<div style="color: var(--accent-text); font-weight: 700; margin-bottom: 8px;">root/</div>`;
+    function renderBranch(node, depth = 1) {
+      const indent = "&nbsp;&nbsp;".repeat(depth);
+      for (const name in node) {
+        const item = node[name];
+        if (typeof item === "object" && item !== null && !item.content && !item.file) {
+          html += `<div>${indent}<svg class="icon-inline" style="color: var(--accent);"><use href="#icon-folder"/></svg> <strong style="color: var(--text-primary);">${escapeHtml(name)}/</strong></div>`;
+          renderBranch(item, depth + 1);
+        } else {
+          const content = typeof item === "string" ? item : (item.content || "");
+          const preview = content.substring(0, 45).replace(/\n/g, " ");
+          html += `<div>${indent}<svg class="icon-inline" style="color: var(--text-muted);"><use href="#icon-file"/></svg> <span style="color: var(--text-primary);">${escapeHtml(name)}</span> <span style="color: var(--text-muted);">"${escapeHtml(preview)}"</span></div>`;
+        }
+      }
+    }
+    renderBranch(tree);
+    el.notesTreeContainer.innerHTML = html;
+  }
+
+  // 9. Storage
+  async function fetchStorage() {
+    try {
+      const res = await fetch("/api/storage");
+      const data = await res.json();
+      if (el.storageMediaSize) el.storageMediaSize.textContent = `${data.mediaMB || 0} MB`;
+      if (el.storageDbSize) el.storageDbSize.textContent = `${data.dbMB || 0} MB`;
+      if (el.storageNotesSize) el.storageNotesSize.textContent = `${data.notesKB || 0} KB`;
+      if (el.storageAuditSize) el.storageAuditSize.textContent = `${data.deletedKB || 0} KB`;
+    } catch (e) { }
+  }
+
+  async function cleanMediaStorage() {
+    try {
+      const res = await fetch("/api/storage/clean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "media" }),
+      });
+      const data = await res.json();
+      showToast(`Cleaned ${data.freedMB || 0} MB temporary media`, "success");
+      fetchStorage();
+    } catch (e) {
+      showToast("Failed to clean media storage", "danger");
+    }
+  }
+
+  // 10. Console Logs
+  async function fetchLogs() {
+    if (!el.logTerminal) return;
+    try {
+      const res = await fetch("/api/logs");
+      const logs = await res.json();
+      state.logs = Array.isArray(logs) ? logs : [];
+      renderLogs();
+    } catch (e) { }
+  }
+
+  function renderLogs() {
+    if (!el.logTerminal) return;
+    const filter = state.logsFilter;
+
+    const filtered = state.logs.filter((entry) => {
+      if (filter === "ALL") return true;
+      return (entry.level || "").toUpperCase() === filter;
+    });
+
+    if (filtered.length === 0) {
+      el.logTerminal.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">No logs recorded yet.</div>`;
+      return;
+    }
+
+    el.logTerminal.innerHTML = filtered
+      .map((entry) => {
+        const time = entry.timestamp
+          ? new Date(entry.timestamp).toLocaleTimeString([], { hour12: false })
+          : "--:--:--";
+        const lvl = (entry.level || "INFO").toUpperCase();
+        return `
+          <div class="log-line">
+            <span class="log-time">[${time}]</span>
+            <span class="log-level ${lvl}">${lvl}</span>
+            <span>${escapeHtml(entry.message || "")}</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    if (state.autoScrollLogs) {
+      el.logTerminal.scrollTop = el.logTerminal.scrollHeight;
+    }
+  }
+
+  // MeowCaller VoIP & Song Party Management
+  async function fetchMeowCallerStatus() {
+    try {
+      const res = await fetch("/api/meowcaller/status");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data && data.status) {
+        updateMeowCallerStatusUI(data.status);
+      }
+    } catch (err) {
+      console.error("Failed to fetch MeowCaller status:", err);
+    }
+  }
+
+  function updateMeowCallerStatusUI(status) {
+    if (!status) return;
+    state.meowcaller = status;
+
+    const isEnabled = !!status.enabled;
+
+    // Overview Badge & Label
+    if (el.badgeMeowCallerState) {
+      el.badgeMeowCallerState.textContent = isEnabled ? "LIVE" : "OFF";
+      el.badgeMeowCallerState.className = `badge ${isEnabled ? "badge-success" : "badge-neutral"}`;
+    }
+    if (el.labelMeowCallerOverview) {
+      if (!isEnabled) {
+        el.labelMeowCallerOverview.textContent = "Off by default (Safe mode)";
+      } else if (status.tempSecondsLeft > 0) {
+        const m = Math.floor(status.tempSecondsLeft / 60);
+        el.labelMeowCallerOverview.textContent = `Active (${m}m window remaining)`;
+      } else {
+        el.labelMeowCallerOverview.textContent = "Active (Permanent mode)";
+      }
+    }
+
+    // Sidebar Badge
+    if (el.sidebarCallerBadge) {
+      if (!isEnabled) {
+        el.sidebarCallerBadge.textContent = "OFF";
+        el.sidebarCallerBadge.className = "badge badge-neutral";
+      } else if (status.tempSecondsLeft > 0) {
+        const m = Math.floor(status.tempSecondsLeft / 60);
+        el.sidebarCallerBadge.textContent = `${m}m`;
+        el.sidebarCallerBadge.className = "badge badge-warning";
+      } else {
+        el.sidebarCallerBadge.textContent = "LIVE";
+        el.sidebarCallerBadge.className = "badge badge-success";
+      }
+    }
+
+    // Master Status Badge in MeowCaller tab
+    if (el.callerStatusBadge) {
+      el.callerStatusBadge.innerHTML = isEnabled ? '<span class="status-dot online"></span> LIVE (Active VoIP)' : 'OFF (Safe Mode)';
+      el.callerStatusBadge.className = `badge ${isEnabled ? "badge-success" : "badge-neutral"}`;
+    }
+
+    // Remaining Timer Badge
+    if (el.callerTimerRemainingBadge) {
+      if (isEnabled && status.tempSecondsLeft > 0) {
+        const m = Math.floor(status.tempSecondsLeft / 60);
+        const s = status.tempSecondsLeft % 60;
+        el.callerTimerRemainingBadge.style.display = "inline-flex";
+        el.callerTimerRemainingBadge.innerHTML = `<svg class="icon-inline"><use href="#icon-clock"/></svg> ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")} remaining`;
+      } else {
+        el.callerTimerRemainingBadge.style.display = "none";
+      }
+    }
+
+    // Master Toggle Button
+    if (el.btnToggleCallerMaster) {
+      if (isEnabled) {
+        el.btnToggleCallerMaster.className = "btn btn-danger";
+        if (el.callerMasterBtnIcon) el.callerMasterBtnIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-square"/></svg>';
+        if (el.callerMasterBtnText) el.callerMasterBtnText.textContent = "Disable MeowCaller";
+      } else {
+        el.btnToggleCallerMaster.className = "btn btn-primary";
+        if (el.callerMasterBtnIcon) el.callerMasterBtnIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-zap"/></svg>';
+        if (el.callerMasterBtnText) el.callerMasterBtnText.textContent = "Enable MeowCaller";
+      }
+    }
+
+    // Auto-Accept Checkbox
+    if (el.checkCallerAutoAccept) {
+      el.checkCallerAutoAccept.checked = !!status.autoAcceptCalls;
+    }
+
+    // Pending Incoming Call Alert
+    if (el.callerIncomingAlert) {
+      if (status.pendingCall) {
+        el.callerIncomingAlert.style.display = "block";
+        if (el.callerIncomingPeer) {
+          el.callerIncomingPeer.textContent = status.pendingCall.peer || "Unknown Caller";
+        }
+        if (el.callerIncomingDuration) {
+          el.callerIncomingDuration.textContent = formatTime(status.pendingCall.durationSec || 0);
+        }
+      } else {
+        el.callerIncomingAlert.style.display = "none";
+      }
+    }
+
+    // Call Console
+    const call = status.activeCall;
+    if (el.callerCallPhaseBadge) {
+      const phase = call ? call.phase : (status.pendingCall ? "Ringing" : "Idle");
+      el.callerCallPhaseBadge.textContent = capitalize(phase);
+      el.callerCallPhaseBadge.className = `badge ${call && phase === "active" ? "badge-success" : (call || status.pendingCall ? "badge-warning" : "badge-neutral")}`;
+    }
+    if (el.callerCallDuration) {
+      el.callerCallDuration.textContent = call && call.durationSec ? formatTime(call.durationSec) : "00:00";
+    }
+    if (el.callerCallPeer) {
+      el.callerCallPeer.textContent = call ? call.peer : (status.pendingCall ? `Incoming: ${status.pendingCall.peer}` : "No Call in Progress");
+    }
+    if (el.callerCallSubtext) {
+      if (call) {
+        el.callerCallSubtext.textContent = call.isOutgoing ? "Outgoing WhatsApp VoIP Call" : "Incoming WhatsApp VoIP Call";
+      } else if (status.pendingCall) {
+        el.callerCallSubtext.textContent = "Incoming Call Ringing... Click 'Answer Call' above to accept";
+      } else {
+        el.callerCallSubtext.textContent = "Pure-Go VoIP Stack (MLOW Codec)";
+      }
+    }
+    if (el.callerAvatarIcon) {
+      el.callerAvatarIcon.innerHTML = call
+        ? (call.phase === "active" ? '<svg class="icon-inline" style="width: 18px; height: 18px;"><use href="#icon-volume"/></svg>' : '<svg class="icon-inline" style="width: 18px; height: 18px;"><use href="#icon-phone"/></svg>')
+        : (status.pendingCall ? '<svg class="icon-inline" style="width: 18px; height: 18px;"><use href="#icon-phone"/></svg>' : '<svg class="icon-inline" style="width: 18px; height: 18px;"><use href="#icon-phone"/></svg>');
+    }
+
+    // Live call audio monitor notice and auto-listening synchronization
+    if (call && call.phase === "active") {
+      if (el.callerLiveAudioNotice) el.callerLiveAudioNotice.style.display = "flex";
+      if (!isListening) {
+        startAudioMonitoring();
+      }
+      if (audioContext && audioContext.state === "suspended") {
+        if (el.callerLiveAudioNoticeText) {
+          el.callerLiveAudioNoticeText.textContent = "Live call audio is stream ready. Click 'Unmute Audio' to hear caller.";
+        }
+        if (el.btnQuickStartListening) {
+          el.btnQuickStartListening.textContent = "Unmute Audio";
+          el.btnQuickStartListening.className = "btn btn-sm btn-warning";
+        }
+      } else {
+        if (el.callerLiveAudioNoticeText) {
+          el.callerLiveAudioNoticeText.textContent = "Live caller audio is streaming to your speakers.";
+        }
+        if (el.btnQuickStartListening) {
+          el.btnQuickStartListening.textContent = "Listening Live";
+          el.btnQuickStartListening.className = "btn btn-sm btn-success";
+        }
+      }
+    } else {
+      if (el.callerLiveAudioNotice) el.callerLiveAudioNotice.style.display = "none";
+    }
+
+    // Song Party DJ Deck
+    const isPlaying = !!status.isPlaying;
+    const isPaused = !!status.isPaused;
+    const curr = status.currentTrack;
+
+    if (el.partyVisualizer) {
+      if (isPlaying && !isPaused) {
+        el.partyVisualizer.classList.add("playing");
+      } else {
+        el.partyVisualizer.classList.remove("playing");
+      }
+    }
+
+    if (el.partyPlaybackBadge) {
+      if (isPaused) {
+        el.partyPlaybackBadge.textContent = "PAUSED";
+        el.partyPlaybackBadge.className = "badge badge-warning";
+      } else if (isPlaying) {
+        el.partyPlaybackBadge.textContent = "STREAMING";
+        el.partyPlaybackBadge.className = "badge badge-success";
+      } else {
+        el.partyPlaybackBadge.textContent = "IDLE";
+        el.partyPlaybackBadge.className = "badge badge-neutral";
+      }
+    }
+
+    if (el.partyNowPlayingTitle) {
+      el.partyNowPlayingTitle.textContent = curr ? curr.title : "No Track Playing";
+    }
+    if (el.partyNowPlayingRequester) {
+      if (curr) {
+        el.partyNowPlayingRequester.textContent = `Requested by ${curr.requestedBy || "DJ"} • Streaming in call`;
+      } else {
+        el.partyNowPlayingRequester.innerHTML = `Add a song below or send <code>!party start &lt;song&gt;</code> in WhatsApp`;
+      }
+    }
+
+    if (el.partyPauseResumeIcon && el.partyPauseResumeText) {
+      if (isPaused) {
+        el.partyPauseResumeIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-play"/></svg>';
+        el.partyPauseResumeText.textContent = "Resume";
+      } else {
+        el.partyPauseResumeIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-pause"/></svg>';
+        el.partyPauseResumeText.textContent = "Pause";
+      }
+    }
+
+    // Upcoming Queue Table
+    const queue = status.queue || [];
+    if (el.partyQueueCountBadge) {
+      el.partyQueueCountBadge.textContent = `${queue.length} song${queue.length === 1 ? "" : "s"}`;
+    }
+
+    if (el.partyQueueTableBody) {
+      if (queue.length === 0) {
+        el.partyQueueTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+              Queue is empty. Search for songs above or use <code>!party add &lt;song&gt;</code> on WhatsApp.
+            </td>
+          </tr>
+        `;
+      } else {
+        el.partyQueueTableBody.innerHTML = queue.map((t, idx) => `
+          <tr>
+            <td style="font-family: var(--font-mono); color: var(--text-muted);">${idx + 1}</td>
+            <td style="font-weight: 600; color: var(--text-primary);">${escapeHtml(t.title)}</td>
+            <td style="color: var(--text-secondary);">${escapeHtml(t.requestedBy || "User")}</td>
+            <td style="font-size: 11px; color: var(--text-muted);">${t.addedAt ? new Date(t.addedAt).toLocaleTimeString() : "-"}</td>
+            <td style="text-align: right;">
+              <button class="btn btn-sm btn-danger btn-remove-party-track" data-index="${idx}" title="Remove track" style="padding: 2px 6px;">
+                <svg style="width: 11px; height: 11px;"><use href="#icon-trash"/></svg>
+              </button>
+            </td>
+          </tr>
+        `).join("");
+      }
+    }
+
+    // Populate datalist with recent chats if empty
+    if (el.callerRecentRecipients && el.callerRecentRecipients.children.length === 0 && state.chats && state.chats.length > 0) {
+      el.callerRecentRecipients.innerHTML = state.chats.map(c => `
+        <option value="${escapeHtml(c.jid)}">${escapeHtml(c.name || c.jid)}</option>
+      `).join("");
+    }
+
+    // Realtime AI VoiceBot Telemetry & UI
+    const vb = status.voiceBot;
+    if (vb) {
+      const vbEnabled = !!vb.enabled;
+      if (el.btnToggleVoiceBot) {
+        if (vbEnabled) {
+          el.btnToggleVoiceBot.className = "btn btn-sm btn-danger";
+          if (el.voiceBotBtnIcon) el.voiceBotBtnIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-square"/></svg>';
+          if (el.voiceBotBtnText) el.voiceBotBtnText.textContent = "Disable VoiceBot";
+        } else {
+          el.btnToggleVoiceBot.className = "btn btn-sm btn-primary";
+          if (el.voiceBotBtnIcon) el.voiceBotBtnIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-mic"/></svg>';
+          if (el.voiceBotBtnText) el.voiceBotBtnText.textContent = "Enable VoiceBot";
+        }
+      }
+
+      if (el.voiceBotLiveDot) {
+        el.voiceBotLiveDot.className = vbEnabled ? "live-dot active" : "live-dot";
+      }
+
+      if (el.voiceBotStatusBadge) {
+        if (!vbEnabled) {
+          el.voiceBotStatusBadge.textContent = "STANDBY";
+          el.voiceBotStatusBadge.className = "badge badge-neutral";
+        } else {
+          const stateUpper = (vb.state || "listening").toUpperCase();
+          el.voiceBotStatusBadge.textContent = stateUpper;
+          if (vb.state === "speaking") {
+            el.voiceBotStatusBadge.className = "badge badge-success";
+          } else if (vb.state === "thinking" || vb.state === "transcribing") {
+            el.voiceBotStatusBadge.className = "badge badge-warning";
+          } else if (vb.state === "offline") {
+            el.voiceBotStatusBadge.className = "badge badge-danger";
+          } else {
+            el.voiceBotStatusBadge.className = "badge badge-primary";
+          }
+        }
+      }
+
+      if (el.voiceBotWsConnBadge) {
+        if (vbEnabled) {
+          el.voiceBotWsConnBadge.textContent = "Groq Whisper STT";
+          el.voiceBotWsConnBadge.className = "badge badge-success";
+        } else {
+          el.voiceBotWsConnBadge.textContent = "Standby";
+          el.voiceBotWsConnBadge.className = "badge badge-neutral";
+        }
+      }
+
+      if (el.voiceBotLatencyBadge) {
+        if (vb.lastLatencyMs > 0) {
+          el.voiceBotLatencyBadge.style.display = "inline-flex";
+          el.voiceBotLatencyBadge.textContent = `${vb.lastLatencyMs}ms Latency`;
+        } else {
+          el.voiceBotLatencyBadge.style.display = "none";
+        }
+      }
+
+      if (el.voiceBotMetricLatency) {
+        el.voiceBotMetricLatency.textContent = vb.lastLatencyMs > 0 ? `${vb.lastLatencyMs} ms` : "-- ms";
+      }
+
+      if (el.voiceBotMetricContext) {
+        el.voiceBotMetricContext.textContent = `${vb.contextTurns || 0} turns`;
+      }
+
+      if (el.voiceBotMetricTurns) {
+        el.voiceBotMetricTurns.textContent = String(vb.totalTurns || 0);
+      }
+
+      if (el.voiceBotLiveTranscript && vb.lastTranscript) {
+        el.voiceBotLiveTranscript.textContent = vb.lastTranscript;
+        el.voiceBotLiveTranscript.style.fontStyle = "normal";
+      }
+
+      if (el.voiceBotLiveResponse && vb.lastResponse) {
+        el.voiceBotLiveResponse.textContent = vb.lastResponse;
+      }
+
+      if (el.voiceBotAsrStateBadge) {
+        if (vb.state === "transcribing") {
+          el.voiceBotAsrStateBadge.textContent = "Transcribing Speech...";
+          el.voiceBotAsrStateBadge.style.color = "#38bdf8";
+        } else if (vb.state === "listening") {
+          el.voiceBotAsrStateBadge.textContent = "Listening (100ms chunks)";
+          el.voiceBotAsrStateBadge.style.color = "#34d399";
+        } else {
+          el.voiceBotAsrStateBadge.textContent = "Standby";
+          el.voiceBotAsrStateBadge.style.color = "var(--text-muted)";
+        }
+      }
+
+      if (el.voiceBotTtsStateBadge) {
+        if (vb.state === "speaking") {
+          el.voiceBotTtsStateBadge.textContent = "Speaking into Call (Barge-in active)";
+          el.voiceBotTtsStateBadge.style.color = "#34d399";
+        } else {
+          el.voiceBotTtsStateBadge.textContent = "Idle";
+          el.voiceBotTtsStateBadge.style.color = "var(--text-muted)";
+        }
+      }
+
+      if (el.voiceBotSongTriggerInput && vb.songTriggerPhrase && document.activeElement !== el.voiceBotSongTriggerInput) {
+        el.voiceBotSongTriggerInput.value = vb.songTriggerPhrase;
+      }
+    }
+
+    if (status.radio) {
+      const radio = status.radio;
+      if (el.radioSpeakingBadge) {
+        el.radioSpeakingBadge.style.display = radio.isSpeaking ? "inline-flex" : "none";
+      }
+      if (el.radioMixFeedback) {
+        if (radio.micActive) {
+          el.radioMixFeedback.textContent = radio.mode === "ducking" ? "Ducking Active (Music @ 15%)" : "Music Muted";
+        } else {
+          el.radioMixFeedback.textContent = "";
+        }
+      }
+    }
+  }
+
+  async function toggleMeowCallerMaster() {
+    const isCurrentlyEnabled = state.meowcaller && state.meowcaller.enabled;
+    const newEnabled = !isCurrentlyEnabled;
+    const duration = newEnabled ? state.selectedDurationMinutes : 0;
+
+    try {
+      const res = await fetch("/api/meowcaller/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newEnabled, durationMinutes: duration }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data && data.status) {
+        updateMeowCallerStatusUI(data.status);
+        showToast(newEnabled ? `MeowCaller enabled (${duration > 0 ? duration + "m window" : "indefinitely"})` : "MeowCaller disabled", newEnabled ? "success" : "info");
+      }
+    } catch (err) {
+      showToast(`Failed to toggle MeowCaller: ${err.message}`, "danger");
+    }
+  }
+
+  async function toggleCallerAutoAccept(autoAccept) {
+    try {
+      const res = await fetch("/api/meowcaller/auto-accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoAccept }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data && data.status) {
+        updateMeowCallerStatusUI(data.status);
+        showToast(`Auto-answer calls set to ${autoAccept ? "ON" : "OFF"}`);
+      }
+    } catch (err) {
+      showToast(`Failed to update auto-answer: ${err.message}`, "danger");
+    }
+  }
+
+  async function dialCaller() {
+    const target = el.callerDialTarget?.value?.trim();
+    if (!target) {
+      showToast("Please enter a phone number or group JID to dial", "warning");
+      return;
+    }
+
+    if (!state.meowcaller || !state.meowcaller.enabled) {
+      showToast("MeowCaller is disabled. Please enable it first.", "warning");
+      return;
+    }
+
+    showToast(`Dialing ${target}...`, "info");
+    try {
+      const res = await fetch("/api/meowcaller/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      showToast(`Call initiated to ${target}`, "success");
+      fetchMeowCallerStatus();
+      if (!isListening) {
+        startAudioMonitoring();
+      }
+    } catch (err) {
+      showToast(`Dial error: ${err.message}`, "danger");
+    }
+  }
+
+  async function hangupCaller() {
+    try {
+      const res = await fetch("/api/meowcaller/hangup", { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Call hung up", "info");
+      fetchMeowCallerStatus();
+    } catch (err) {
+      showToast(`Hang up error: ${err.message}`, "danger");
+    }
+  }
+
+  async function answerIncomingCaller() {
+    try {
+      const res = await fetch("/api/meowcaller/answer", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      showToast("Incoming call answered! Audio live.", "success");
+      fetchMeowCallerStatus();
+      if (!isListening) {
+        startAudioMonitoring();
+      }
+    } catch (err) {
+      showToast(`Answer error: ${err.message}`, "danger");
+    }
+  }
+
+  async function rejectIncomingCaller() {
+    try {
+      const res = await fetch("/api/meowcaller/reject", { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("Incoming call rejected", "info");
+      fetchMeowCallerStatus();
+    } catch (err) {
+      showToast(`Reject error: ${err.message}`, "danger");
+    }
+  }
+
+  async function queuePartySongFromDashboard() {
+    const query = el.partySongInput?.value?.trim();
+    if (!query) {
+      showToast("Please enter a song name or YouTube link", "warning");
+      return;
+    }
+
+    if (!state.meowcaller || !state.meowcaller.enabled) {
+      showToast("MeowCaller is disabled. Enable it before starting the song party.", "warning");
+      return;
+    }
+
+    const target = el.callerDialTarget?.value?.trim() || "";
+    showToast(`Downloading & preparing "${query}"...`, "info");
+    if (el.btnPartyQueueSong) {
+      el.btnPartyQueueSong.disabled = true;
+      el.btnPartyQueueSong.textContent = "Downloading...";
+    }
+
+    try {
+      const res = await fetch("/api/meowcaller/party/play", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, target }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      showToast(`Added "${data.track?.title || query}" to Party!`, "success");
+      if (el.partySongInput) el.partySongInput.value = "";
+      if (data.status) updateMeowCallerStatusUI(data.status);
+    } catch (err) {
+      showToast(`Song error: ${err.message}`, "danger");
+    } finally {
+      if (el.btnPartyQueueSong) {
+        el.btnPartyQueueSong.disabled = false;
+        el.btnPartyQueueSong.textContent = "Queue Song";
+      }
+    }
+  }
+
+  async function controlParty(action) {
+    try {
+      const res = await fetch("/api/meowcaller/party/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (data.status) updateMeowCallerStatusUI(data.status);
+    } catch (err) {
+      showToast(`Control error: ${err.message}`, "danger");
+    }
+  }
+
+  async function removePartyTrack(index) {
+    try {
+      const res = await fetch("/api/meowcaller/party/queue/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      showToast(`Removed "${data.removed?.title || 'track'}" from queue`);
+      if (data.status) updateMeowCallerStatusUI(data.status);
+    } catch (err) {
+      showToast(`Remove error: ${err.message}`, "danger");
+    }
+  }
+
+  // Live Call Audio Monitor (Web Audio API + WebSocket)
+
+  let audioContext = null;
+  let audioSocket = null;
+  let isListening = false;
+  let isAudioMuted = false;
+  let currentFeedChannel = "mixed"; // "mixed", "incoming", "outgoing"
+  let masterGainNode = null;
+  let incomingGainNode = null;
+  let outgoingGainNode = null;
+  let compressorNode = null;
+  let nextPlayTimeIncoming = 0;
+  let nextPlayTimeOutgoing = 0;
+  let incomingHistory = new Array(36).fill(0);
+  let outgoingHistory = new Array(36).fill(0);
+  let incomingLastActiveTime = 0;
+  let outgoingLastActiveTime = 0;
+  let totalPacketsReceived = 0;
+  let animFrameId = null;
+
+  async function startAudioMonitoring() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        showToast("Web Audio API is not supported in this browser", "warning");
+        return;
+      }
+
+      // Initialize AudioContext without forcing 16000Hz hardware rate
+      // Windows audio devices (Realtek, WASAPI, Bluetooth) require native rate (44.1k/48k)
+      // Web Audio API automatically resamples our 16000Hz buffer to hardware rate cleanly
+      if (!audioContext || audioContext.state === "closed") {
+        audioContext = new AudioCtx();
+      }
+
+      if (audioContext.state === "suspended") {
+        await audioContext.resume().catch(() => { });
+      }
+
+      // Disconnect and rebuild gain nodes cleanly
+      if (incomingGainNode) { try { incomingGainNode.disconnect(); } catch (_) { } }
+      if (outgoingGainNode) { try { outgoingGainNode.disconnect(); } catch (_) { } }
+      if (compressorNode) { try { compressorNode.disconnect(); } catch (_) { } }
+      if (masterGainNode) { try { masterGainNode.disconnect(); } catch (_) { } }
+
+      masterGainNode = audioContext.createGain();
+      incomingGainNode = audioContext.createGain();
+      outgoingGainNode = audioContext.createGain();
+
+      // Dynamics compressor for AGC: boosts soft caller speech, prevents harsh clipping
+      compressorNode = audioContext.createDynamicsCompressor();
+      compressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
+      compressorNode.knee.setValueAtTime(10, audioContext.currentTime);
+      compressorNode.ratio.setValueAtTime(5, audioContext.currentTime);
+      compressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
+      compressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
+
+      const masterVol = parseFloat(el.sliderMasterVolume?.value || "1");
+      const incomingGain = parseFloat(el.sliderGainIncoming?.value || "2.2");
+      const outgoingGain = parseFloat(el.sliderGainOutgoing?.value || "1");
+
+      masterGainNode.gain.setValueAtTime(isAudioMuted ? 0 : masterVol, audioContext.currentTime);
+      incomingGainNode.gain.setValueAtTime(incomingGain, audioContext.currentTime);
+      outgoingGainNode.gain.setValueAtTime(outgoingGain, audioContext.currentTime);
+
+      // Inbound voice routing: incomingGain -> AGC compressor -> masterGain -> destination
+      incomingGainNode.connect(compressorNode);
+      compressorNode.connect(masterGainNode);
+
+      // Outbound bot/music routing: outgoingGain -> masterGain -> destination
+      outgoingGainNode.connect(masterGainNode);
+      masterGainNode.connect(audioContext.destination);
+
+      if (audioSocket && (audioSocket.readyState === WebSocket.OPEN || audioSocket.readyState === WebSocket.CONNECTING)) {
+        isListening = true;
+        updateAudioMonitorUI(true);
+        return;
+      }
+
+      if (audioSocket) {
+        try { audioSocket.close(); } catch (_) { }
+      }
+
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${proto}//${window.location.host}/api/meowcaller/audio/ws`;
+      audioSocket = new WebSocket(wsUrl);
+      audioSocket.binaryType = "arraybuffer";
+      isListening = true;
+
+      audioSocket.onopen = () => {
+        isListening = true;
+        totalPacketsReceived = 0;
+        nextPlayTimeIncoming = 0;
+        nextPlayTimeOutgoing = 0;
+        updateAudioMonitorUI(true);
+        startVisualizerLoops();
+        showToast("Connected to Live Call Audio Monitor! Speaker audio active.", "success");
       };
-      const color = typeColors[entry.type] || "text-slate-400";
 
-      return `
-      <div class="py-1 border-b border-slate-900/60 leading-relaxed font-mono">
-        <span class="text-slate-600 select-none">[${time}]</span>
-        <span class="font-bold ${color} px-1">[${entry.type}]</span>
-        <span class="text-slate-300 font-sans">${escapeHtml(entry.message)}</span>
-      </div>`;
-    })
-    .join("");
-}
+      audioSocket.onmessage = (event) => {
+        if (!isListening || !audioContext) return;
+        const buffer = event.data;
+        if (buffer.byteLength < 3) return;
 
-function escapeHtml(str) {
-  return (str || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-}
+        const view = new DataView(buffer);
+        const channelTag = view.getUint8(0); // 1 = Outgoing/Bot, 2 = Incoming/Callers
+        const sampleCount = Math.floor((buffer.byteLength - 1) / 2);
 
-// ---------------------------------------------------------------------------
-// 16. MODALS MANAGEMENT (NICKNAME, MUTE, REMINDER, PERSONA, NOTE)
-// ---------------------------------------------------------------------------
-function setupModals() {
-  // Rename Modal
-  window.openRenameModal = (jid, currentName) => {
-    document.getElementById("renameJidInput").value = jid;
-    document.getElementById("renameNameInput").value = currentName || "";
-    document.getElementById("renameModal").classList.remove("hidden");
-    document.getElementById("renameNameInput").focus();
-  };
+        // Feed filter check
+        if (currentFeedChannel === "incoming" && channelTag !== 2) return;
+        if (currentFeedChannel === "outgoing" && channelTag !== 1) return;
 
-  const closeRename = () => document.getElementById("renameModal")?.classList.add("hidden");
-  document.getElementById("closeRenameModalBtn")?.addEventListener("click", closeRename);
-  document.getElementById("cancelRenameModalBtn")?.addEventListener("click", closeRename);
+        const audioBuffer = audioContext.createBuffer(1, sampleCount, 16000);
+        const channelData = audioBuffer.getChannelData(0);
+        let sumSquares = 0;
 
-  document.getElementById("saveRenameBtn")?.addEventListener("click", async () => {
-    const jid = document.getElementById("renameJidInput").value;
-    const name = document.getElementById("renameNameInput").value.trim();
-    if (!name) return showToast("Please enter a name or nickname", "error");
+        for (let i = 0; i < sampleCount; i++) {
+          const s16 = view.getInt16(1 + i * 2, true); // little-endian
+          const f32 = s16 / 32768.0;
+          channelData[i] = f32;
+          sumSquares += f32 * f32;
+        }
 
-    try {
-      await fetch("/api/contacts/rename", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jid, name }),
-      });
+        const rms = Math.sqrt(sumSquares / sampleCount);
+        const level = Math.min(1, rms * 4.5);
 
-      showToast("Contact name updated!", "success");
-      closeRename();
-      fetchChatsData();
-    } catch (e) {
-      showToast("Failed to rename contact", "error");
+        const now = Date.now();
+        if (channelTag === 2) {
+          incomingHistory.push(level);
+          incomingHistory.shift();
+          if (level > 0.03) incomingLastActiveTime = now;
+        } else if (channelTag === 1) {
+          outgoingHistory.push(level);
+          outgoingHistory.shift();
+          if (level > 0.03) outgoingLastActiveTime = now;
+        }
+
+        // Wake up audio context if suspended by browser autoplay policy
+        if (audioContext.state === "suspended") {
+          audioContext.resume().catch(() => { });
+        }
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+
+        const curTime = audioContext.currentTime;
+        const leadTime = 0.035;
+
+        // Separate timelines for incoming caller voices and outgoing music so they play
+        // in parallel simultaneously without clock-doubling latency drift or interleaving gaps.
+        if (channelTag === 2) {
+          source.connect(incomingGainNode);
+          if (nextPlayTimeIncoming < curTime || nextPlayTimeIncoming > curTime + 1.5) {
+            nextPlayTimeIncoming = curTime + leadTime;
+          }
+          source.start(nextPlayTimeIncoming);
+          nextPlayTimeIncoming += audioBuffer.duration;
+        } else {
+          source.connect(outgoingGainNode);
+          if (nextPlayTimeOutgoing < curTime || nextPlayTimeOutgoing > curTime + 1.5) {
+            nextPlayTimeOutgoing = curTime + leadTime;
+          }
+          source.start(nextPlayTimeOutgoing);
+          nextPlayTimeOutgoing += audioBuffer.duration;
+        }
+
+        totalPacketsReceived++;
+
+        if (totalPacketsReceived % 4 === 0 && el.audioMonitorStats) {
+          const ctxState = audioContext.state.toUpperCase();
+          const channelName = channelTag === 2 ? "INBOUND CALLER" : "OUTBOUND BOT";
+          const peakDb = rms > 0.0001 ? Math.round(20 * Math.log10(rms)) : -60;
+          el.audioMonitorStats.textContent = `16kHz PCM • Pkts: ${totalPacketsReceived} • Last: ${channelName} (${peakDb}dB) • Audio: ${ctxState}`;
+        }
+      };
+
+      audioSocket.onerror = (err) => {
+        console.warn("[AudioMonitor] WebSocket error:", err);
+      };
+
+      audioSocket.onclose = () => {
+        if (isListening) {
+          console.log("[AudioMonitor] WebSocket closed. Auto-reconnecting in 2s...");
+          setTimeout(() => {
+            if (isListening) startAudioMonitoring();
+          }, 2000);
+        }
+      };
+
+    } catch (err) {
+      showToast(`Audio monitor start error: ${err.message}`, "danger");
+      stopAudioMonitoring();
     }
-  });
-
-  // Mute Modal
-  document.getElementById("openMuteModalBtn")?.addEventListener("click", async () => {
-    const res = await fetch("/api/chats");
-    const chats = await res.json();
-    const select = document.getElementById("muteChatSelect");
-    if (select) {
-      select.innerHTML = chats.map((c) => `<option value="${c.jid}">${escapeHtml(c.name)} (${c.phone || c.jid})</option>`).join("");
-    }
-    document.getElementById("muteModal")?.classList.remove("hidden");
-  });
-
-  const closeMute = () => document.getElementById("muteModal")?.classList.add("hidden");
-  document.getElementById("closeMuteModalBtn")?.addEventListener("click", closeMute);
-  document.getElementById("cancelMuteModalBtn")?.addEventListener("click", closeMute);
-
-  document.getElementById("confirmMuteBtn")?.addEventListener("click", async () => {
-    const jid = document.getElementById("muteChatSelect").value;
-    const senderId = document.getElementById("muteSenderInput").value.trim();
-    if (!senderId) return showToast("Please enter phone number or sender ID to mute", "error");
-
-    try {
-      await fetch("/api/moderation/mute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jid, senderId }),
-      });
-
-      showToast("User successfully muted in chat", "success");
-      closeMute();
-      fetchMutesData();
-    } catch (e) {
-      showToast("Failed to mute user", "error");
-    }
-  });
-
-  // Reminder Modal
-  document.getElementById("openNewReminderModalBtn")?.addEventListener("click", async () => {
-    const res = await fetch("/api/chats");
-    const chats = await res.json();
-    const select = document.getElementById("reminderChatSelect");
-    if (select) {
-      select.innerHTML = chats.map((c) => `<option value="${c.jid}">${escapeHtml(c.name)} (${c.phone || c.jid})</option>`).join("");
-    }
-    document.getElementById("reminderModal")?.classList.remove("hidden");
-  });
-
-  const closeReminder = () => document.getElementById("reminderModal")?.classList.add("hidden");
-  document.getElementById("closeReminderModalBtn")?.addEventListener("click", closeReminder);
-  document.getElementById("cancelReminderModalBtn")?.addEventListener("click", closeReminder);
-
-  document.getElementById("saveReminderBtn")?.addEventListener("click", async () => {
-    const jid = document.getElementById("reminderChatSelect").value;
-    const minutes = document.getElementById("reminderMinutesInput").value;
-    const text = document.getElementById("reminderTextInput").value.trim();
-
-    if (!text || !minutes) return showToast("Please enter text and duration", "error");
-
-    try {
-      await fetch("/api/reminders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jid, minutes, text }),
-      });
-
-      showToast("Reminder scheduled successfully!", "success");
-      closeReminder();
-      fetchRemindersData();
-    } catch (e) {
-      showToast("Failed to schedule reminder", "error");
-    }
-  });
-
-  // Custom Persona Modal
-  document.getElementById("openNewPersonaModalBtn")?.addEventListener("click", () => {
-    document.getElementById("personaModal")?.classList.remove("hidden");
-  });
-
-  const closePersona = () => document.getElementById("personaModal")?.classList.add("hidden");
-  document.getElementById("closePersonaModalBtn")?.addEventListener("click", closePersona);
-  document.getElementById("cancelPersonaModalBtn")?.addEventListener("click", closePersona);
-
-  document.getElementById("saveNewPersonaBtn")?.addEventListener("click", async () => {
-    const key = document.getElementById("newPersonaKey").value.trim().toLowerCase();
-    const label = document.getElementById("newPersonaLabel").value.trim();
-    const flavor = document.getElementById("newPersonaFlavor").value.trim();
-
-    if (!key || !label || !flavor) return showToast("Please fill all persona fields", "error");
-
-    try {
-      await fetch("/api/personas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, label, flavor }),
-      });
-
-      showToast("Persona added successfully!", "success");
-      closePersona();
-      fetchPersonasData();
-    } catch (e) {
-      showToast("Failed to save persona", "error");
-    }
-  });
-
-  // Note Modal
-  document.getElementById("openNewNoteModalBtn")?.addEventListener("click", () => {
-    document.getElementById("noteModal")?.classList.remove("hidden");
-    document.getElementById("newNotePath")?.focus();
-  });
-
-  const closeNote = () => document.getElementById("noteModal")?.classList.add("hidden");
-  document.getElementById("closeNoteModalBtn")?.addEventListener("click", closeNote);
-  document.getElementById("cancelNoteModalBtn")?.addEventListener("click", closeNote);
-
-  document.getElementById("saveNewNoteBtn")?.addEventListener("click", async () => {
-    const path = document.getElementById("newNotePath").value.trim();
-    const content = document.getElementById("newNoteContent").value.trim();
-
-    if (!path || !content) return showToast("Please enter path and note content", "error");
-
-    try {
-      await fetch("/api/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path, content }),
-      });
-
-      showToast(`Note saved: ${path}`, "success");
-      document.getElementById("newNotePath").value = "";
-      document.getElementById("newNoteContent").value = "";
-      closeNote();
-      fetchNotesData();
-    } catch (e) {
-      showToast("Failed to save note", "error");
-    }
-  });
-}
-
-// ---------------------------------------------------------------------------
-// 17. COMMAND CHEAT SHEET & QUICK COPY
-// ---------------------------------------------------------------------------
-const ALL_BOT_COMMANDS = [
-  // Superpower Tools
-  { name: "!ocr", cat: "tools", syntax: "!ocr (reply to image)", desc: "Extracts text from handwriting, documents & photos using Gemini Vision." },
-  { name: "!sum", cat: "tools", syntax: "!sum / !summarize (reply to long text)", desc: "Generates a clean 3-bullet executive summary + takeaway." },
-  { name: "!tr", cat: "tools", syntax: "!tr <lang> [text]", desc: "Translates text into any language (e.g. !tr hi, !tr es, !tr ja)." },
-  { name: "!poll", cat: "tools", syntax: '!poll "Question" "Option 1" "Option 2"', desc: "Creates native WhatsApp interactive voting polls." },
-  { name: "!calc", cat: "tools", syntax: "!calc <math / currency / units>", desc: "Scientific calculator & currency conversion (e.g. 15% of $4500)." },
-  { name: "!weather", cat: "tools", syntax: "!weather <city name>", desc: "Live weather forecast card (temp, humidity, wind & conditions)." },
-  { name: "!define", cat: "tools", syntax: "!define <word>", desc: "Dictionary definition, pronunciation, synonyms and example sentence." },
-  { name: "!tagall", cat: "tools", syntax: "!tagall <announcement>", desc: "Mentions all group members for important updates (Admin only)." },
-  { name: "!quote", cat: "tools", syntax: "!quote / !motivation", desc: "Daily inspirational quote and thought." },
-  { name: "!fact", cat: "tools", syntax: "!fact / !mindblown", desc: "Verified fascinating science or historical trivia fact." },
-  { name: "!meme", cat: "tools", syntax: "!meme <top> | <bottom> (reply to image)", desc: "Creates authentic classic meme graphic from photo." },
-
-  // Media & Downloads
-  { name: "!s", cat: "media", syntax: "!s / !sticker (reply/attach media)", desc: "Converts image, video or GIF into WhatsApp WebP sticker in <1s." },
-  { name: "!toimg", cat: "media", syntax: "!toimg (reply to sticker)", desc: "Converts static sticker back into high-resolution photo." },
-  { name: "!togif", cat: "media", syntax: "!togif / !tovideo (reply to sticker)", desc: "Converts animated sticker into MP4 video / GIF." },
-  { name: "!toaudio", cat: "media", syntax: "!toaudio / !tomp3 (reply to video)", desc: "Extracts audio from video file as 44.1kHz MP3." },
-  { name: "!play", cat: "media", syntax: "!play <song name or link>", desc: "Downloads MP3 audio with embedded ID3 tags and album cover." },
-  { name: "!song", cat: "media", syntax: "!song <query>", desc: "Instant audio search and stream on WhatsApp." },
-  { name: "!video", cat: "media", syntax: "!video <link> / !mp4 <link>", desc: "Universal video downloader (YouTube, Instagram, Reddit, TikTok, X)." },
-  { name: "!ig", cat: "media", syntax: "!ig <Instagram reel/post link>", desc: "Downloads Instagram Reels and video posts in HD." },
-  { name: "!reddit", cat: "media", syntax: "!reddit <link>", desc: "Downloads Reddit video clips." },
-  { name: "!yt", cat: "media", syntax: "!yt <search query>", desc: "Searches YouTube and displays top 5 clickable results." },
-  { name: "!img", cat: "media", syntax: "!img <search query>", desc: "Fetches high-resolution images from Google search." },
-  { name: "!vv", cat: "media", syntax: "!vv / !viewonce", desc: "Instantly intercepts and restores disappearing View-Once photos/videos." },
-  { name: "!deleted", cat: "media", syntax: "!deleted list", desc: "Recovers revoked / deleted WhatsApp messages." },
-
-  // AI & Personas
-  { name: "!catchup", cat: "ai", syntax: "!catchup [50-100] / !recap", desc: "Summarizes missed texts and key discussions while you were away using AI." },
-  { name: "!zero2", cat: "ai", syntax: "!zero2 <prompt>", desc: "Chat with Zero Two (darling, sweet, romantic personality)." },
-  { name: "!makima", cat: "ai", syntax: "!makima <prompt>", desc: "Chat with Makima (dominant, calculated, cold charisma)." },
-  { name: "!kurumi", cat: "ai", syntax: "!kurumi <prompt>", desc: "Chat with Kurumi Tokisaki (playful, seductive, gothic spirit)." },
-  { name: "!mai", cat: "ai", syntax: "!mai <prompt>", desc: "Chat with Mai Sakurajima (teasing, mature, composed)." },
-  { name: "!ganyu", cat: "ai", syntax: "!ganyu <prompt>", desc: "Chat with Ganyu (gentle, diligent, soft spoken)." },
-  { name: "!johan", cat: "ai", syntax: "!johan <prompt>", desc: "Chat with Johan Liebert (philosophical, eerie, psychological master)." },
-  { name: "!light", cat: "ai", syntax: "!light <prompt>", desc: "Chat with Light Yagami (righteous god complex, supreme intellect)." },
-  { name: "!gojo", cat: "ai", syntax: "!gojo <prompt>", desc: "Chat with Satoru Gojo (overconfident, funny, strongest sorcerer)." },
-  { name: "!sukuna", cat: "ai", syntax: "!sukuna <prompt>", desc: "Chat with Ryomen Sukuna (arrogant king of curses)." },
-  { name: "!dazai", cat: "ai", syntax: "!dazai <prompt>", desc: "Chat with Osamu Dazai (witty, dramatic, eccentric genius)." },
-  { name: "!tts", cat: "ai", syntax: "!tts <voice> <text>", desc: "Generates realistic text-to-speech audio in character voices." },
-  { name: "!vc", cat: "ai", syntax: "!vc <model> [preset]", desc: "RVC AI Voice Conversion of voice notes and song covers." },
-  { name: "!gen", cat: "ai", syntax: "!gen <prompt>", desc: "AI image generation for realistic and digital artwork." },
-  { name: "!anime", cat: "ai", syntax: "!anime <prompt>", desc: "AI anime artwork generation." },
-
-  // Admin & Controls
-  { name: "!autoreply", cat: "admin", syntax: "!autoreply on [mode] / off", desc: "Smart Away & Auto-Reply bot with keyword triggers & visitor inbox." },
-  { name: "!welcome", cat: "admin", syntax: "!welcome on/off / !welcome set <text>", desc: "Group welcomer greeting banner with custom template tags." },
-  { name: "!mute", cat: "admin", syntax: "!mute @user / !unmute @user", desc: "Silences spam users; auto-deletes their messages instantly." },
-  { name: "!remind", cat: "admin", syntax: "!remind <10m|1h> <reminder text>", desc: "Schedules automated timer reminder in chat." },
-  { name: "!notes", cat: "admin", syntax: "!notes / !addnote <folder/file> <text>", desc: "Virtual file tree system for saving notes, media and code snippets." },
-  { name: "!antidelete", cat: "admin", syntax: "!antidelete", desc: "Toggles anti-delete message interception per chat." },
-  { name: "!features", cat: "admin", syntax: "!features on/off", desc: "Enables/disables interactive features and personas in group chats." },
-  { name: "!storage", cat: "admin", syntax: "!storage / !storage clear media", desc: "Monitors disk usage and cleans cached media/stickers." },
-  { name: "!status", cat: "admin", syntax: "!status / !botstatus / !uptime", desc: "Displays bot uptime, RAM usage, and connection status." },
-  { name: "!wake", cat: "admin", syntax: "!wake / !sleep", desc: "Manually triggers low-power Sleep Mode or instant Wakeup." },
-];
-
-function renderCommandCheatSheet() {
-  const query = (document.getElementById("commandSearchInput")?.value || "").toLowerCase().trim();
-  const category = document.getElementById("commandCategoryFilter")?.value || "all";
-  const grid = document.getElementById("commandsCardsGrid");
-  if (!grid) return;
-
-  const filtered = ALL_BOT_COMMANDS.filter((cmd) => {
-    if (category !== "all" && cmd.cat !== category) return false;
-    if (query) {
-      const matchName = cmd.name.toLowerCase().includes(query);
-      const matchSyntax = cmd.syntax.toLowerCase().includes(query);
-      const matchDesc = cmd.desc.toLowerCase().includes(query);
-      return matchName || matchSyntax || matchDesc;
-    }
-    return true;
-  });
-
-  const catBadges = {
-    tools: { label: "Tool", color: "bg-teal-500/10 text-teal-400 border-teal-500/20" },
-    media: { label: "Media", color: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
-    ai: { label: "AI", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-    games: { label: "Game", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-    admin: { label: "Admin", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
-  };
-
-  if (filtered.length === 0) {
-    grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 font-sans">No matching commands found.</div>`;
-    return;
   }
 
-  grid.innerHTML = filtered
-    .map((cmd) => {
-      const badge = catBadges[cmd.cat] || catBadges.tools;
-      return `
-      <div class="p-4 rounded-2xl glass-card-interactive space-y-2 flex flex-col justify-between">
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-white font-mono text-sm">${cmd.name}</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono border ${badge.color}">${badge.label}</span>
-          </div>
-          <div class="p-2 rounded-lg bg-dark-900/60 font-mono text-[11px] text-emerald-400 select-all border border-slate-800/60">
-            ${escapeHtml(cmd.syntax)}
-          </div>
-          <p class="text-xs text-slate-400 font-sans leading-relaxed">${escapeHtml(cmd.desc)}</p>
-        </div>
-        <div class="pt-2 flex justify-end">
-          <button onclick="copyToClipboard('${cmd.syntax.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-300 text-xs flex items-center gap-1.5 transition">
-            <i data-lucide="copy" class="w-3 h-3 text-slate-400"></i> Copy
-          </button>
-        </div>
-      </div>`;
-    })
-    .join("");
+  function stopAudioMonitoring() {
+    isListening = false;
+    if (audioSocket) {
+      try { audioSocket.close(); } catch (_) { }
+      audioSocket = null;
+    }
+    if (audioContext && audioContext.state !== "closed") {
+      try { audioContext.suspend().catch(() => { }); } catch (_) { }
+    }
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+    updateAudioMonitorUI(false);
+    drawVisualizerIdle();
+  }
 
-  if (window.lucide) lucide.createIcons({ root: grid });
-}
+  function toggleAudioMonitoring() {
+    if (isListening) {
+      stopAudioMonitoring();
+      showToast("Live call audio monitor stopped");
+    } else {
+      startAudioMonitoring();
+    }
+  }
 
-window.copyToClipboard = (text) => {
-  navigator.clipboard.writeText(text);
-  showToast("Command copied to clipboard!", "success");
-};
+  function testAudioOutput() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        showToast("Web Audio API is not supported in this browser", "warning");
+        return;
+      }
+      if (!audioContext || audioContext.state === "closed") {
+        audioContext = new AudioCtx();
+      }
+      audioContext.resume().then(() => {
+        // Melodic 2-tone test chime (C5 523Hz -> G5 784Hz)
+        const now = audioContext.currentTime;
+        const osc1 = audioContext.createOscillator();
+        const osc2 = audioContext.createOscillator();
+        const testGain = audioContext.createGain();
+
+        osc1.type = "sine";
+        osc2.type = "sine";
+        osc1.frequency.setValueAtTime(523.25, now);
+        osc2.frequency.setValueAtTime(783.99, now + 0.12);
+
+        testGain.gain.setValueAtTime(0, now);
+        testGain.gain.linearRampToValueAtTime(0.35, now + 0.02);
+        testGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        osc1.connect(testGain);
+        osc2.connect(testGain);
+        testGain.connect(audioContext.destination);
+
+        osc1.start(now);
+        osc1.stop(now + 0.14);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.36);
+
+        showToast("Test chime played! AudioContext is running and speakers are active.", "success");
+        if (!isListening) {
+          startAudioMonitoring();
+        }
+      }).catch((err) => {
+        showToast(`Speaker test error: ${err.message}`, "danger");
+      });
+    } catch (err) {
+      showToast(`Speaker test error: ${err.message}`, "danger");
+    }
+  }
+
+  function updateAudioMonitorUI(active) {
+    if (el.audioMonitorLiveDot) {
+      el.audioMonitorLiveDot.classList.toggle("active", active);
+    }
+    if (el.audioMonitorBadge) {
+      el.audioMonitorBadge.textContent = active ? "LISTENING LIVE" : "STANDBY";
+      el.audioMonitorBadge.className = active ? "badge badge-success" : "badge badge-neutral";
+    }
+    if (el.audioListenBtnIcon) {
+      el.audioListenBtnIcon.innerHTML = active ? '<svg class="icon-inline"><use href="#icon-square"/></svg>' : '<svg class="icon-inline"><use href="#icon-headphones"/></svg>';
+    }
+    if (el.audioListenBtnText) {
+      el.audioListenBtnText.textContent = active ? "Stop Listening" : "Start Listening";
+    }
+    if (!active && el.audioMonitorStats) {
+      el.audioMonitorStats.textContent = "16kHz PCM • Web Audio API • Ultra-Low Latency";
+    }
+  }
+
+  function startVisualizerLoops() {
+    function render() {
+      if (!isListening) return;
+
+      const now = Date.now();
+      const incomingActive = (now - incomingLastActiveTime) < 350;
+      const outgoingActive = (now - outgoingLastActiveTime) < 350;
+
+      if (el.badgeIncomingVoiceActivity) {
+        el.badgeIncomingVoiceActivity.textContent = incomingActive ? "SPEAKING" : "IDLE";
+        el.badgeIncomingVoiceActivity.style.background = incomingActive ? "rgba(56, 189, 248, 0.35)" : "rgba(56, 189, 248, 0.15)";
+      }
+      if (el.badgeOutgoingVoiceActivity) {
+        el.badgeOutgoingVoiceActivity.textContent = outgoingActive ? "STREAMING" : "IDLE";
+        el.badgeOutgoingVoiceActivity.style.background = outgoingActive ? "rgba(168, 85, 247, 0.35)" : "rgba(168, 85, 247, 0.15)";
+      }
+
+      drawWaveform(el.canvasIncomingAudio, incomingHistory, "#38bdf8", "#0284c7");
+      drawWaveform(el.canvasOutgoingAudio, outgoingHistory, "#c084fc", "#9333ea");
+
+      animFrameId = requestAnimationFrame(render);
+    }
+
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    animFrameId = requestAnimationFrame(render);
+  }
+
+  function drawWaveform(canvas, history, colorPrimary, colorGlow) {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const barWidth = Math.floor(w / history.length) - 2;
+    const centerY = h / 2;
+
+    for (let i = 0; i < history.length; i++) {
+      const val = history[i];
+      const barH = Math.max(3, val * (h - 8));
+      const x = i * (barWidth + 2);
+      const y = centerY - barH / 2;
+
+      ctx.fillStyle = colorPrimary;
+      ctx.shadowBlur = val > 0.1 ? 6 : 0;
+      ctx.shadowColor = colorGlow;
+
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x, y, barWidth, barH, 2) : ctx.rect(x, y, barWidth, barH);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function drawVisualizerIdle() {
+    drawWaveform(el.canvasIncomingAudio, new Array(36).fill(0.04), "#475569", "transparent");
+    drawWaveform(el.canvasOutgoingAudio, new Array(36).fill(0.04), "#475569", "transparent");
+    if (el.badgeIncomingVoiceActivity) el.badgeIncomingVoiceActivity.textContent = "IDLE";
+    if (el.badgeOutgoingVoiceActivity) el.badgeOutgoingVoiceActivity.textContent = "IDLE";
+  }
+
+  // Radio Station DJ & Live Broadcast Mic
+
+  let isRadioOnAir = false;
+  let isRadioPttActive = false;
+  let radioMode = "ducking"; // "ducking" | "mic_only"
+  let radioMicGain = 1.0;
+  let radioDuckLevel = 0.15;
+  let radioMediaStream = null;
+  let radioAudioContext = null;
+  let radioSourceNode = null;
+  let radioProcessorNode = null;
+  let radioResampleBuffer = [];
+
+  async function populateRadioMicDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter((d) => d.kind === "audioinput");
+      if (el.selectRadioMicDevice && audioInputs.length > 0) {
+        const cur = el.selectRadioMicDevice.value;
+        el.selectRadioMicDevice.innerHTML = audioInputs.map((d, idx) => {
+          const label = d.label || `Microphone ${idx + 1}`;
+          return `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(label)}</option>`;
+        }).join("");
+        if (cur && audioInputs.some((d) => d.deviceId === cur)) {
+          el.selectRadioMicDevice.value = cur;
+        }
+      }
+    } catch (_) { }
+  }
+
+  function ensureAudioSocketForMic() {
+    if (audioSocket && audioSocket.readyState === WebSocket.OPEN) {
+      return audioSocket;
+    }
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${proto}//${window.location.host}/api/meowcaller/audio/ws`;
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = "arraybuffer";
+    ws.onopen = () => {
+      audioSocket = ws;
+      sendRadioControl("set_mic", { active: isRadioOnAir || isRadioPttActive });
+    };
+    audioSocket = ws;
+    return ws;
+  }
+
+  function sendRadioControl(action, payload = {}) {
+    const data = Object.assign({ action }, payload);
+    const ws = ensureAudioSocketForMic();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    } else {
+      fetch("/api/meowcaller/radio/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(() => { });
+    }
+  }
+
+  async function startRadioMicStream() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!radioAudioContext || radioAudioContext.state === "closed") {
+        radioAudioContext = new AudioCtx();
+      }
+      if (radioAudioContext.state === "suspended") {
+        await radioAudioContext.resume().catch(() => { });
+      }
+
+      const selectedDeviceId = el.selectRadioMicDevice?.value;
+      const constraints = {
+        audio: {
+          deviceId: selectedDeviceId && selectedDeviceId !== "default" ? { exact: selectedDeviceId } : undefined,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      };
+
+      radioMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      populateRadioMicDevices();
+
+      radioSourceNode = radioAudioContext.createMediaStreamSource(radioMediaStream);
+
+      const inputSampleRate = radioAudioContext.sampleRate;
+      const targetSampleRate = 16000;
+      const resampleRatio = inputSampleRate / targetSampleRate;
+
+      radioProcessorNode = radioAudioContext.createScriptProcessor(4096, 1, 1);
+      radioResampleBuffer = [];
+
+      radioProcessorNode.onaudioprocess = (e) => {
+        const active = isRadioOnAir || isRadioPttActive;
+        const inputChannel = e.inputBuffer.getChannelData(0);
+
+        let sumSq = 0;
+        for (let i = 0; i < inputChannel.length; i++) {
+          sumSq += inputChannel[i] * inputChannel[i];
+        }
+        const rms = Math.sqrt(sumSq / inputChannel.length);
+        updateRadioVuMeter(rms, active);
+
+        if (!active) return;
+
+        const outSamplesCount = Math.floor(inputChannel.length / resampleRatio);
+        for (let outIdx = 0; outIdx < outSamplesCount; outIdx++) {
+          const inIdx = outIdx * resampleRatio;
+          const i0 = Math.floor(inIdx);
+          const i1 = Math.min(i0 + 1, inputChannel.length - 1);
+          const frac = inIdx - i0;
+          const sample = inputChannel[i0] * (1 - frac) + inputChannel[i1] * frac;
+          radioResampleBuffer.push(sample);
+        }
+
+        while (radioResampleBuffer.length >= 960) {
+          const chunk = radioResampleBuffer.slice(0, 960);
+          radioResampleBuffer = radioResampleBuffer.slice(960);
+
+          const packet = new Uint8Array(1 + 960 * 2);
+          packet[0] = 3; // ChannelMic tag
+          const view = new DataView(packet.buffer);
+          for (let i = 0; i < 960; i++) {
+            let s = chunk[i] * 32768.0;
+            if (s > 32767) s = 32767;
+            else if (s < -32768) s = -32768;
+            view.setInt16(1 + i * 2, Math.round(s), true);
+          }
+
+          const ws = ensureAudioSocketForMic();
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(packet.buffer);
+          }
+        }
+      };
+
+      radioSourceNode.connect(radioProcessorNode);
+
+      const dummyGain = radioAudioContext.createGain();
+      dummyGain.gain.value = 0;
+      radioProcessorNode.connect(dummyGain);
+      dummyGain.connect(radioAudioContext.destination);
+
+      return true;
+    } catch (err) {
+      showToast(`Microphone permission error: ${err.message}`, "danger");
+      return false;
+    }
+  }
+
+  function stopRadioMicStream() {
+    if (radioProcessorNode) {
+      try { radioProcessorNode.disconnect(); } catch (_) { }
+      radioProcessorNode = null;
+    }
+    if (radioSourceNode) {
+      try { radioSourceNode.disconnect(); } catch (_) { }
+      radioSourceNode = null;
+    }
+    if (radioMediaStream) {
+      radioMediaStream.getTracks().forEach((t) => t.stop());
+      radioMediaStream = null;
+    }
+    updateRadioVuMeter(0, false);
+  }
+
+  function updateRadioVuMeter(rms, active) {
+    if (!el.radioVuBar) return;
+    const db = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
+    const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+    el.radioVuBar.style.width = `${pct.toFixed(1)}%`;
+
+    if (el.labelRadioMicDb) {
+      el.labelRadioMicDb.textContent = db > -59 ? `${Math.round(db)} dB` : "-60 dB";
+    }
+
+    const isSpeaking = active && db > -38;
+    if (el.radioSpeakingBadge) {
+      el.radioSpeakingBadge.style.display = isSpeaking ? "inline-flex" : "none";
+    }
+  }
+
+  function updateRadioUI(active) {
+    if (el.radioLiveDot) {
+      el.radioLiveDot.className = active ? "live-dot active" : "live-dot";
+      el.radioLiveDot.style.background = active ? "#ef4444" : "#64748b";
+    }
+    if (el.radioOnAirBadge) {
+      el.radioOnAirBadge.innerHTML = active ? '<span class="status-dot" style="background-color: var(--danger);"></span> ON AIR' : 'OFF AIR';
+      el.radioOnAirBadge.className = active ? "badge badge-danger" : "badge badge-neutral";
+    }
+    if (el.btnRadioMicToggle) {
+      el.btnRadioMicToggle.className = active ? "btn btn-sm btn-outline" : "btn btn-sm btn-danger";
+      if (el.radioMicBtnIcon) el.radioMicBtnIcon.innerHTML = active ? '<svg class="icon-inline"><use href="#icon-square"/></svg>' : '<svg class="icon-inline"><use href="#icon-mic"/></svg>';
+      if (el.radioMicBtnText) el.radioMicBtnText.textContent = active ? "LEAVE AIR" : "GO ON AIR";
+    }
+    if (el.radioStatusText) {
+      if (active) {
+        el.radioStatusText.textContent = radioMode === "ducking"
+          ? "LIVE ON AIR! Music ducking active (speaking over music)."
+          : "LIVE ON AIR! Music muted while speaking.";
+        el.radioStatusText.style.color = "#f87171";
+      } else {
+        el.radioStatusText.textContent = "Microphone standby. Click 'GO ON AIR' or hold PTT to speak.";
+        el.radioStatusText.style.color = "var(--text-secondary)";
+      }
+    }
+  }
+
+  async function toggleRadioOnAir() {
+    if (isRadioOnAir) {
+      isRadioOnAir = false;
+      stopRadioMicStream();
+      sendRadioControl("set_mic", { active: false });
+      updateRadioUI(false);
+      showToast("Radio DJ mic OFF AIR (Music restored to 100%)", "info");
+    } else {
+      const ok = await startRadioMicStream();
+      if (!ok) return;
+      isRadioOnAir = true;
+      sendRadioControl("set_mic", {
+        active: true,
+        mode: radioMode,
+        duckLevel: radioDuckLevel,
+        micGain: radioMicGain,
+      });
+      updateRadioUI(true);
+      showToast("LIVE ON AIR! Broadcast mic is live into the WhatsApp call.", "success");
+    }
+  }
+
+  async function setRadioPTT(active) {
+    if (isRadioOnAir) return;
+    if (active === isRadioPttActive) return;
+    isRadioPttActive = active;
+
+    if (el.btnRadioPTT) {
+      el.btnRadioPTT.className = active ? "btn btn-sm btn-danger" : "btn btn-sm btn-outline";
+    }
+    if (el.radioPttText) {
+      el.radioPttText.textContent = active ? "TALKING (Release to End)" : "Hold to Talk (PTT)";
+    }
+
+    if (active) {
+      await startRadioMicStream();
+      sendRadioControl("set_mic", {
+        active: true,
+        mode: radioMode,
+        duckLevel: radioDuckLevel,
+        micGain: radioMicGain,
+      });
+      updateRadioUI(true);
+    } else {
+      sendRadioControl("set_mic", { active: false });
+      stopRadioMicStream();
+      updateRadioUI(false);
+    }
+  }
+
+  // Realtime AI VoiceBot Logic
+
+  async function fetchVoiceBotVoices() {
+    try {
+      const res = await fetch("/api/meowcaller/voicebot/voices");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.voices && el.voiceBotVoiceSelect) {
+        const cur = el.voiceBotVoiceSelect.value;
+        el.voiceBotVoiceSelect.innerHTML = data.voices.map((v) => {
+          const label = v.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+          return `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+        }).join("");
+        if (cur) el.voiceBotVoiceSelect.value = cur;
+      }
+    } catch (_) { }
+  }
+
+  async function connectVoiceBotWs() {
+    const serverUrl = el.voiceBotServerUrl?.value?.trim() || "ws://127.0.0.1:6006";
+    if (el.btnConnectVoiceBotWs) {
+      el.btnConnectVoiceBotWs.disabled = true;
+      if (el.btnConnectWsText) el.btnConnectWsText.textContent = "Connecting...";
+      if (el.btnConnectWsIcon) el.btnConnectWsIcon.innerHTML = '<svg class="icon-inline spin"><use href="#icon-refresh"/></svg>';
+    }
+    if (el.voiceBotWsError) {
+      el.voiceBotWsError.style.display = "none";
+      el.voiceBotWsError.textContent = "";
+    }
+
+    try {
+      const res = await fetch("/api/meowcaller/voicebot/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serverUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      if (el.voiceBotWsConnBadge) {
+        el.voiceBotWsConnBadge.textContent = "Groq Whisper STT";
+        el.voiceBotWsConnBadge.className = "badge badge-success";
+      }
+      if (el.btnConnectWsText) el.btnConnectWsText.textContent = "Active ✓";
+      if (el.btnConnectWsIcon) el.btnConnectWsIcon.innerHTML = '<svg class="icon-inline" style="color: var(--success);"><use href="#icon-check"/></svg>';
+      showToast(`Configured Groq Whisper STT`, "success");
+      if (data.status) updateMeowCallerStatusUI(data.status);
+    } catch (err) {
+      if (el.voiceBotWsConnBadge) {
+        const vbEnabled = !!(state.meowcaller?.voiceBot?.enabled);
+        el.voiceBotWsConnBadge.textContent = vbEnabled ? "Cloud ASR (Groq / Gemini)" : "Disconnected";
+        el.voiceBotWsConnBadge.className = vbEnabled ? "badge badge-primary" : "badge badge-neutral";
+      }
+      if (el.voiceBotWsError) {
+        el.voiceBotWsError.style.display = "inline";
+        el.voiceBotWsError.textContent = err.message;
+      }
+      if (el.btnConnectWsText) el.btnConnectWsText.textContent = "Connect WSS";
+      if (el.btnConnectWsIcon) el.btnConnectWsIcon.innerHTML = '<svg class="icon-inline"><use href="#icon-zap"/></svg>';
+      showToast(`WebSocket connection failed: ${err.message}`, "danger");
+    } finally {
+      if (el.btnConnectVoiceBotWs) el.btnConnectVoiceBotWs.disabled = false;
+    }
+  }
+
+  async function fetchVoiceBotConfig() {
+    try {
+      const res = await fetch("/api/meowcaller/voicebot/config");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.voiceBot) {
+        const vb = data.voiceBot;
+        if (el.voiceBotServerUrl && vb.serverUrl) el.voiceBotServerUrl.value = vb.serverUrl;
+        if (el.voiceBotModelSelect && vb.geminiModel) el.voiceBotModelSelect.value = vb.geminiModel;
+        if (el.voiceBotVoiceSelect && vb.voice) el.voiceBotVoiceSelect.value = vb.voice;
+        if (el.voiceBotSilenceSlider && vb.silenceThresholdMs) {
+          el.voiceBotSilenceSlider.value = vb.silenceThresholdMs;
+          if (el.voiceBotSilenceVal) el.voiceBotSilenceVal.textContent = `${vb.silenceThresholdMs} ms`;
+        }
+        if (el.voiceBotSongTriggerInput && vb.songTriggerPhrase) el.voiceBotSongTriggerInput.value = vb.songTriggerPhrase;
+        if (el.voiceBotPromptInput && vb.systemPrompt) el.voiceBotPromptInput.value = vb.systemPrompt;
+      }
+    } catch (_) { }
+  }
+
+  async function toggleVoiceBotMaster() {
+    const currentBtnText = el.voiceBotBtnText?.textContent || "";
+    const isCurrentlyEnabled = currentBtnText.includes("Disable") ||
+      !!(state.meowcaller && state.meowcaller.voiceBot && state.meowcaller.voiceBot.enabled);
+    const newEnabled = !isCurrentlyEnabled;
+
+    if (el.btnToggleVoiceBot) {
+      el.btnToggleVoiceBot.disabled = true;
+      if (el.voiceBotBtnText) el.voiceBotBtnText.textContent = newEnabled ? "Enabling..." : "Disabling...";
+    }
+
+    const serverUrl = el.voiceBotServerUrl?.value?.trim() || "ws://127.0.0.1:6006";
+    const voice = el.voiceBotVoiceSelect?.value || "elon_musk";
+    const geminiModel = el.voiceBotModelSelect?.value || "gemini-3.5-flash-lite";
+    const silenceThresholdMs = parseInt(el.voiceBotSilenceSlider?.value || "700", 10);
+    const songTriggerPhrase = el.voiceBotSongTriggerInput?.value?.trim() || "play song";
+    const systemPrompt = el.voiceBotPromptInput?.value?.trim() || "";
+
+    try {
+      const res = await fetch("/api/meowcaller/voicebot/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: newEnabled,
+          serverUrl,
+          voice,
+          geminiModel,
+          silenceThresholdMs,
+          songTriggerPhrase,
+          systemPrompt,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      if (!state.meowcaller) state.meowcaller = {};
+      if (!state.meowcaller.voiceBot) state.meowcaller.voiceBot = {};
+      state.meowcaller.voiceBot.enabled = newEnabled;
+
+      if (data.status) {
+        updateMeowCallerStatusUI(data.status);
+      } else {
+        if (el.btnToggleVoiceBot) {
+          el.btnToggleVoiceBot.className = newEnabled ? "btn btn-sm btn-danger" : "btn btn-sm btn-primary";
+          if (el.voiceBotBtnIcon) el.voiceBotBtnIcon.innerHTML = newEnabled ? '<svg class="icon-inline"><use href="#icon-square"/></svg>' : '<svg class="icon-inline"><use href="#icon-mic"/></svg>';
+          if (el.voiceBotBtnText) el.voiceBotBtnText.textContent = newEnabled ? "Disable VoiceBot" : "Enable VoiceBot";
+        }
+        if (el.voiceBotStatusBadge) {
+          el.voiceBotStatusBadge.textContent = newEnabled ? "LISTENING" : "STANDBY";
+          el.voiceBotStatusBadge.className = newEnabled ? "badge badge-primary" : "badge badge-neutral";
+        }
+      }
+      showToast(newEnabled ? "Realtime AI VoiceBot ENABLED! Listening for call speech." : "VoiceBot DISABLED", newEnabled ? "success" : "info");
+    } catch (err) {
+      showToast(`VoiceBot toggle error: ${err.message}`, "danger");
+      if (el.voiceBotBtnText) {
+        el.voiceBotBtnText.textContent = isCurrentlyEnabled ? "Disable VoiceBot" : "Enable VoiceBot";
+      }
+    } finally {
+      if (el.btnToggleVoiceBot) el.btnToggleVoiceBot.disabled = false;
+    }
+  }
+
+  async function saveVoiceBotConfig() {
+    const isCurrentlyEnabled = (el.voiceBotBtnText?.textContent || "").includes("Disable") ||
+      !!(state.meowcaller && state.meowcaller.voiceBot && state.meowcaller.voiceBot.enabled);
+    const serverUrl = el.voiceBotServerUrl?.value?.trim() || "ws://127.0.0.1:6006";
+    const voice = el.voiceBotVoiceSelect?.value || "elon_musk";
+    const geminiModel = el.voiceBotModelSelect?.value || "gemini-3.5-flash-lite";
+    const silenceThresholdMs = parseInt(el.voiceBotSilenceSlider?.value || "700", 10);
+    const songTriggerPhrase = el.voiceBotSongTriggerInput?.value?.trim() || "play song";
+    const systemPrompt = el.voiceBotPromptInput?.value?.trim() || "";
+
+    try {
+      const res = await fetch("/api/meowcaller/voicebot/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: isCurrentlyEnabled,
+          serverUrl,
+          voice,
+          geminiModel,
+          silenceThresholdMs,
+          songTriggerPhrase,
+          systemPrompt,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (data.status) updateMeowCallerStatusUI(data.status);
+      showToast("VoiceBot configuration saved!", "success");
+    } catch (err) {
+      showToast(`Save error: ${err.message}`, "danger");
+    }
+  }
+
+  // Event Handlers & Submissions
+
+  function initEventHandlers() {
+    // Realtime AI VoiceBot Listeners
+    if (el.voiceBotSilenceSlider) {
+      el.voiceBotSilenceSlider.addEventListener("input", (e) => {
+        if (el.voiceBotSilenceVal) {
+          el.voiceBotSilenceVal.textContent = `${e.target.value} ms`;
+        }
+      });
+    }
+
+    if (el.btnConnectVoiceBotWs) {
+      el.btnConnectVoiceBotWs.addEventListener("click", connectVoiceBotWs);
+    }
+
+    if (el.btnToggleVoiceBot) {
+      el.btnToggleVoiceBot.addEventListener("click", toggleVoiceBotMaster);
+    }
+
+    if (el.btnSaveVoiceBotConfig) {
+      el.btnSaveVoiceBotConfig.addEventListener("click", saveVoiceBotConfig);
+    }
+
+    // Live Call Audio Monitor Listeners
+    if (el.btnToggleAudioListen) {
+      el.btnToggleAudioListen.addEventListener("click", toggleAudioMonitoring);
+    }
+
+    if (el.btnQuickStartListening) {
+      el.btnQuickStartListening.addEventListener("click", toggleAudioMonitoring);
+    }
+
+    if (el.btnTestAudioChime) {
+      el.btnTestAudioChime.addEventListener("click", testAudioOutput);
+    }
+
+    // Auto-resume AudioContext on any user interaction to satisfy browser autoplay policy
+    document.addEventListener("click", () => {
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume().catch(() => { });
+      }
+    }, { passive: true });
+
+    if (el.btnAudioMuteToggle) {
+      el.btnAudioMuteToggle.addEventListener("click", () => {
+        isAudioMuted = !isAudioMuted;
+        if (el.audioMuteIcon) {
+          el.audioMuteIcon.innerHTML = isAudioMuted ? '<svg class="icon-inline"><use href="#icon-volume-x"/></svg>' : '<svg class="icon-inline"><use href="#icon-volume"/></svg>';
+        }
+        if (masterGainNode) {
+          const vol = parseFloat(el.sliderMasterVolume?.value || "1");
+          masterGainNode.gain.value = isAudioMuted ? 0 : vol;
+        }
+      });
+    }
+
+    if (el.sliderMasterVolume) {
+      el.sliderMasterVolume.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        if (el.labelMasterVolume) el.labelMasterVolume.textContent = `${Math.round(val * 100)}%`;
+        if (masterGainNode && !isAudioMuted) {
+          masterGainNode.gain.value = val;
+        }
+      });
+    }
+
+    if (el.sliderGainIncoming) {
+      el.sliderGainIncoming.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        if (el.labelGainIncoming) el.labelGainIncoming.textContent = `${Math.round(val * 100)}%`;
+        if (incomingGainNode) {
+          incomingGainNode.gain.value = val;
+        }
+      });
+    }
+
+    if (el.sliderGainOutgoing) {
+      el.sliderGainOutgoing.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        if (el.labelGainOutgoing) el.labelGainOutgoing.textContent = `${Math.round(val * 100)}%`;
+        if (outgoingGainNode) {
+          outgoingGainNode.gain.value = val;
+        }
+      });
+    }
+
+    if (el.audioFeedSelector) {
+      el.audioFeedSelector.querySelectorAll(".duration-pill").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          el.audioFeedSelector.querySelectorAll(".duration-pill").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentFeedChannel = btn.getAttribute("data-channel") || "mixed";
+          if (audioContext) {
+            const curTime = audioContext.currentTime;
+            nextPlayTimeIncoming = curTime + 0.025;
+            nextPlayTimeOutgoing = curTime + 0.025;
+          }
+          showToast(`Audio monitor switched to: ${btn.textContent.trim()}`);
+        });
+      });
+    }
+
+    // Initial idle visualizer render
+    drawVisualizerIdle();
+    // Tab switching
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-tab");
+        if (tab) switchTab(tab);
+      });
+    });
+
+    // Mobile menu toggle
+    if (el.mobileMenuBtn && el.appSidebar) {
+      el.mobileMenuBtn.addEventListener("click", () => {
+        el.appSidebar.classList.toggle("open");
+      });
+    }
+
+    // Theme toggle
+    if (el.btnToggleTheme) {
+      el.btnToggleTheme.addEventListener("click", toggleTheme);
+    }
+
+    // Power toggle
+    if (el.btnToggleSleep) {
+      el.btnToggleSleep.addEventListener("click", toggleSleep);
+    }
+
+    // Quick Refresh
+    if (el.btnQuickRefresh) {
+      el.btnQuickRefresh.addEventListener("click", () => {
+        loadCurrentTabData();
+        showToast("Refreshed state", "success");
+      });
+    }
+    if (el.btnRefreshStatus) {
+      el.btnRefreshStatus.addEventListener("click", () => {
+        fetchStatus();
+        showToast("Checked connection state", "success");
+      });
+    }
+
+    // Search Chats
+    if (el.searchChatsInput) {
+      el.searchChatsInput.addEventListener("input", renderChatsTable);
+    }
+
+    // Open Help / Commands Modal
+    if (el.btnOpenHelpModal) {
+      el.btnOpenHelpModal.addEventListener("click", () => {
+        if (el.helpSearchInput) el.helpSearchInput.value = "";
+        filterHelpCommands("all", "");
+        openModal(el.modalHelp);
+      });
+    }
+
+    if (el.helpFilterPills) {
+      el.helpFilterPills.querySelectorAll(".duration-pill").forEach((pill) => {
+        pill.addEventListener("click", () => {
+          el.helpFilterPills.querySelectorAll(".duration-pill").forEach((p) => p.classList.remove("active"));
+          pill.classList.add("active");
+          filterHelpCommands(pill.dataset.cat || "all", el.helpSearchInput?.value || "");
+        });
+      });
+    }
+
+    if (el.helpSearchInput) {
+      el.helpSearchInput.addEventListener("input", (e) => {
+        const activePill = el.helpFilterPills?.querySelector(".duration-pill.active");
+        filterHelpCommands(activePill?.dataset.cat || "all", e.target.value);
+      });
+    }
+
+    function filterHelpCommands(cat, query) {
+      const q = query.toLowerCase().trim();
+      const sections = el.helpCommandsList?.querySelectorAll(".help-section");
+      if (!sections) return;
+      sections.forEach((sec) => {
+        const secCat = sec.dataset.section;
+        const matchesCat = cat === "all" || secCat === cat;
+        if (!matchesCat) {
+          sec.style.display = "none";
+          return;
+        }
+
+        const cards = sec.querySelectorAll("div[style*='background']");
+        let visibleCount = 0;
+        cards.forEach((card) => {
+          const text = card.textContent.toLowerCase();
+          const matchesQuery = !q || text.includes(q);
+          card.style.display = matchesQuery ? "block" : "none";
+          if (matchesQuery) visibleCount++;
+        });
+
+        sec.style.display = visibleCount > 0 ? "block" : "none";
+      });
+    }
+
+    // Open Send Message Modal
+    if (el.btnOpenSendMessageModal) {
+      el.btnOpenSendMessageModal.addEventListener("click", () => {
+        if (el.sendMsgJid) el.sendMsgJid.value = "";
+        if (el.sendMsgContent) el.sendMsgContent.value = "";
+        openModal(el.modalSendMessage);
+      });
+    }
+
+    // Submit Send Message
+    if (el.btnSubmitSendMessage) {
+      el.btnSubmitSendMessage.addEventListener("click", async () => {
+        const jid = el.sendMsgJid?.value?.trim();
+        const text = el.sendMsgContent?.value?.trim();
+        if (!jid || !text) {
+          showToast("Please provide both a recipient and message text", "warning");
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/message/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jid, text }),
+          });
+          if (res.ok) {
+            showToast("Message dispatched successfully", "success");
+            closeModal(el.modalSendMessage);
+          } else {
+            const errText = await res.text();
+            showToast(`Send failed: ${errText}`, "danger");
+          }
+        } catch (e) {
+          showToast(`Error: ${e.message}`, "danger");
+        }
+      });
+    }
+
+    // Open Mute Modal
+    if (el.btnOpenMuteModal) {
+      el.btnOpenMuteModal.addEventListener("click", () => {
+        if (el.muteTargetInput) el.muteTargetInput.value = "";
+        openModal(el.modalMute);
+      });
+    }
+
+    // Submit Mute
+    if (el.btnSubmitMute) {
+      el.btnSubmitMute.addEventListener("click", async () => {
+        const user = el.muteTargetInput?.value?.trim();
+        if (!user) {
+          showToast("Please provide a phone number or JID", "warning");
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/moderation/mute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jid: "global", senderId: user }),
+          });
+          if (res.ok) {
+            showToast(`Muted user ${user}`, "success");
+            closeModal(el.modalMute);
+            fetchMutes();
+          }
+        } catch (e) {
+          showToast("Failed to mute user", "danger");
+        }
+      });
+    }
+
+    // Open Reminder Modal
+    if (el.btnOpenReminderModal) {
+      el.btnOpenReminderModal.addEventListener("click", () => {
+        if (el.reminderTextInput) el.reminderTextInput.value = "";
+        openModal(el.modalReminder);
+      });
+    }
+
+    // Submit Reminder
+    if (el.btnSubmitReminder) {
+      el.btnSubmitReminder.addEventListener("click", async () => {
+        const jid = el.reminderJidInput?.value?.trim() || "global";
+        const text = el.reminderTextInput?.value?.trim();
+        const duration = parseInt(el.reminderDurationInput?.value || "15", 10);
+
+        if (!text) {
+          showToast("Please provide reminder text", "warning");
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/reminders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jid, text, minutes: duration }),
+          });
+          if (res.ok) {
+            showToast("Reminder scheduled", "success");
+            closeModal(el.modalReminder);
+            fetchReminders();
+          }
+        } catch (e) {
+          showToast("Failed to schedule reminder", "danger");
+        }
+      });
+    }
+
+    // Open Add Trigger Modal
+    if (el.btnAddTriggerBtn) {
+      el.btnAddTriggerBtn.addEventListener("click", () => {
+        if (el.triggerKeywordInput) el.triggerKeywordInput.value = "";
+        if (el.triggerResponseInput) el.triggerResponseInput.value = "";
+        openModal(el.modalTrigger);
+      });
+    }
+
+    // Submit Add Trigger
+    if (el.btnSubmitTrigger) {
+      el.btnSubmitTrigger.addEventListener("click", async () => {
+        const phrase = el.triggerKeywordInput?.value?.trim();
+        const reply = el.triggerResponseInput?.value?.trim();
+        if (!phrase || !reply) {
+          showToast("Please enter both keyword and reply", "warning");
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/autoreply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ addTrigger: { phrase, reply } }),
+          });
+          if (res.ok) {
+            showToast("Added auto-reply trigger", "success");
+            closeModal(el.modalTrigger);
+            fetchAutoReply();
+          }
+        } catch (e) {
+          showToast("Failed to add trigger", "danger");
+        }
+      });
+    }
+
+    // Persona Test
+    if (el.btnTestPersona) {
+      el.btnTestPersona.addEventListener("click", testPersona);
+    }
+
+    // AI Global & Chat Override Handlers
+    if (el.btnSaveGlobalAI) {
+      el.btnSaveGlobalAI.addEventListener("click", saveGlobalModel);
+    }
+    if (el.btnSaveChatOverride) {
+      el.btnSaveChatOverride.addEventListener("click", saveChatOverride);
+    }
+
+    // Clean Storage
+    if (el.btnCleanMedia) {
+      el.btnCleanMedia.addEventListener("click", cleanMediaStorage);
+    }
+
+    // Logs Controls
+    if (el.logLevelFilter) {
+      el.logLevelFilter.addEventListener("change", (e) => {
+        state.logsFilter = e.target.value;
+        renderLogs();
+      });
+    }
+    if (el.btnToggleAutoScroll) {
+      el.btnToggleAutoScroll.addEventListener("click", () => {
+        state.autoScrollLogs = !state.autoScrollLogs;
+        el.btnToggleAutoScroll.textContent = `Auto-Scroll: ${state.autoScrollLogs ? "ON" : "OFF"}`;
+      });
+    }
+    if (el.btnClearLogs) {
+      el.btnClearLogs.addEventListener("click", () => {
+        state.logs = [];
+        renderLogs();
+        showToast("Cleared local log view", "success");
+      });
+    }
+
+    // Audit Actions
+    if (el.btnRefreshAudit) {
+      el.btnRefreshAudit.addEventListener("click", fetchAudit);
+    }
+    if (el.btnClearAudit) {
+      el.btnClearAudit.addEventListener("click", async () => {
+        if (!confirm("Are you sure you want to clear all intercepted deleted messages?")) return;
+        try {
+          const res = await fetch("/api/audit/deleted", { method: "DELETE" });
+          if (res.ok) {
+            showToast("Audit Vault cleared", "success");
+            fetchAudit();
+          }
+        } catch (e) {
+          showToast(`Failed to clear audit: ${e.message}`, "danger");
+        }
+      });
+    }
+
+    // Reports & Deadlines
+    if (el.reportDatePicker) {
+      el.reportDatePicker.addEventListener("change", (e) => {
+        fetchDailyReports(e.target.value);
+      });
+    }
+
+    if (el.btnGenerateReportSummary) {
+      el.btnGenerateReportSummary.addEventListener("click", () => {
+        const date = el.reportDatePicker?.value || new Date().toISOString().split("T")[0];
+        generateAISummary(date);
+      });
+    }
+
+    if (el.btnAddReportGroupBtn) {
+      el.btnAddReportGroupBtn.addEventListener("click", () => {
+        const jid = el.newReportGroupInput?.value?.trim();
+        if (!jid) {
+          showToast("Please enter a group JID", "warning");
+          return;
+        }
+        addReportGroup(jid);
+      });
+    }
+
+    if (el.btnSaveDeadline) {
+      el.btnSaveDeadline.addEventListener("click", saveDeadline);
+    }
+
+    if (el.btnRefreshPreview) {
+      el.btnRefreshPreview.addEventListener("click", updatePFPPreview);
+    }
+
+    if (el.pfpTitleInput) {
+      let previewDebounce;
+      el.pfpTitleInput.addEventListener("input", () => {
+        clearTimeout(previewDebounce);
+        previewDebounce = setTimeout(updatePFPPreview, 300);
+      });
+    }
+
+    if (el.pfpDateInput) {
+      el.pfpDateInput.addEventListener("change", updatePFPPreview);
+    }
+
+    // Delegated actions for reports groups & deadlines
+    document.addEventListener("click", (e) => {
+      const btnRemoveGroup = e.target.closest(".btn-remove-report-group");
+      if (btnRemoveGroup) {
+        const jid = btnRemoveGroup.getAttribute("data-jid");
+        if (confirm(`Remove group ${jid} from daily status report broadcasts?`)) {
+          removeReportGroup(jid);
+        }
+        return;
+      }
+
+      const btnUpdatePFP = e.target.closest(".btn-update-group-pfp");
+      if (btnUpdatePFP) {
+        const jid = btnUpdatePFP.getAttribute("data-jid");
+        forceUpdateGroupPFP(jid);
+        return;
+      }
+
+      const btnDeleteDeadline = e.target.closest(".btn-delete-deadline");
+      if (btnDeleteDeadline) {
+        const jid = btnDeleteDeadline.getAttribute("data-jid");
+        if (confirm(`Delete countdown deadline for group ${jid}?`)) {
+          removeDeadline(jid);
+        }
+        return;
+      }
+
+      const btnRemoveTrack = e.target.closest(".btn-remove-party-track");
+      if (btnRemoveTrack) {
+        const idx = parseInt(btnRemoveTrack.getAttribute("data-index"), 10);
+        if (!isNaN(idx)) {
+          removePartyTrack(idx);
+        }
+        return;
+      }
+    });
+
+    // MeowCaller & Song Party Event Handlers
+    if (el.btnQuickOpenCaller) {
+      el.btnQuickOpenCaller.addEventListener("click", () => switchTab("meowcaller"));
+    }
+
+    if (el.btnToggleCallerMaster) {
+      el.btnToggleCallerMaster.addEventListener("click", toggleMeowCallerMaster);
+    }
+
+    if (el.callerDurationPresets) {
+      el.callerDurationPresets.querySelectorAll(".duration-pill").forEach((pill) => {
+        pill.addEventListener("click", () => {
+          el.callerDurationPresets.querySelectorAll(".duration-pill").forEach((p) => p.classList.remove("active"));
+          pill.classList.add("active");
+          const mins = parseInt(pill.getAttribute("data-minutes") || "30", 10);
+          state.selectedDurationMinutes = mins;
+          if (state.meowcaller && state.meowcaller.enabled) {
+            fetch("/api/meowcaller/toggle", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ enabled: true, durationMinutes: mins }),
+            })
+              .then((r) => r.json())
+              .then((data) => {
+                if (data && data.status) updateMeowCallerStatusUI(data.status);
+                showToast(`Temporary window updated to ${mins > 0 ? mins + " mins" : "indefinite"}`);
+              });
+          }
+        });
+      });
+    }
+
+    if (el.checkCallerAutoAccept) {
+      el.checkCallerAutoAccept.addEventListener("change", (e) => {
+        toggleCallerAutoAccept(e.target.checked);
+      });
+    }
+
+    if (el.btnCallerDial) {
+      el.btnCallerDial.addEventListener("click", dialCaller);
+    }
+
+    if (el.btnCallerAnswer) {
+      el.btnCallerAnswer.addEventListener("click", answerIncomingCaller);
+    }
+
+    if (el.btnCallerReject) {
+      el.btnCallerReject.addEventListener("click", rejectIncomingCaller);
+    }
+
+    if (el.btnCallerHangup) {
+      el.btnCallerHangup.addEventListener("click", hangupCaller);
+    }
+
+    if (el.btnPartyQueueSong) {
+      el.btnPartyQueueSong.addEventListener("click", queuePartySongFromDashboard);
+    }
+
+    if (el.partySongInput) {
+      el.partySongInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          queuePartySongFromDashboard();
+        }
+      });
+    }
+
+    if (el.btnPartyPauseResume) {
+      el.btnPartyPauseResume.addEventListener("click", () => {
+        if (state.meowcaller && state.meowcaller.isPaused) {
+          controlParty("resume");
+        } else {
+          controlParty("pause");
+        }
+      });
+    }
+
+    if (el.btnPartySkip) {
+      el.btnPartySkip.addEventListener("click", () => controlParty("skip"));
+    }
+
+    if (el.btnPartyStop) {
+      el.btnPartyStop.addEventListener("click", () => controlParty("stop"));
+    }
+
+    // Radio Station DJ & Live Broadcast Mic Event Handlers
+    if (el.btnRadioMicToggle) {
+      el.btnRadioMicToggle.addEventListener("click", toggleRadioOnAir);
+    }
+
+    if (el.btnRadioPTT) {
+      const startPTT = (e) => { e.preventDefault(); setRadioPTT(true); };
+      const stopPTT = (e) => { e.preventDefault(); setRadioPTT(false); };
+      el.btnRadioPTT.addEventListener("mousedown", startPTT);
+      el.btnRadioPTT.addEventListener("mouseup", stopPTT);
+      el.btnRadioPTT.addEventListener("mouseleave", () => { if (isRadioPttActive) setRadioPTT(false); });
+      el.btnRadioPTT.addEventListener("touchstart", startPTT, { passive: false });
+      el.btnRadioPTT.addEventListener("touchend", stopPTT, { passive: false });
+      el.btnRadioPTT.addEventListener("touchcancel", stopPTT, { passive: false });
+    }
+
+    // Spacebar Push-to-Talk Hotkey
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && state.currentTab === "meowcaller") {
+        const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        e.preventDefault();
+        setRadioPTT(true);
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space" && isRadioPttActive) {
+        e.preventDefault();
+        setRadioPTT(false);
+      }
+    });
+
+    if (el.radioModeSelector) {
+      el.radioModeSelector.querySelectorAll(".duration-pill").forEach((pill) => {
+        pill.addEventListener("click", () => {
+          el.radioModeSelector.querySelectorAll(".duration-pill").forEach((p) => p.classList.remove("active"));
+          pill.classList.add("active");
+          const mode = pill.getAttribute("data-mode") || "ducking";
+          radioMode = mode;
+          sendRadioControl("set_mode", { mode });
+          showToast(`DJ Mode set to: ${mode === "ducking" ? "Auto-Ducking" : "Mic Only (Mute Music)"}`, "info");
+        });
+      });
+    }
+
+    if (el.sliderRadioMicGain) {
+      el.sliderRadioMicGain.addEventListener("input", (e) => {
+        radioMicGain = parseFloat(e.target.value);
+        if (el.labelRadioMicGain) el.labelRadioMicGain.textContent = `${Math.round(radioMicGain * 100)}%`;
+        sendRadioControl("set_mic_gain", { micGain: radioMicGain });
+      });
+    }
+
+    if (el.sliderRadioDuckLevel) {
+      el.sliderRadioDuckLevel.addEventListener("input", (e) => {
+        radioDuckLevel = parseFloat(e.target.value);
+        if (el.labelRadioDuckLevel) el.labelRadioDuckLevel.textContent = `${Math.round(radioDuckLevel * 100)}%`;
+        sendRadioControl("set_duck_level", { duckLevel: radioDuckLevel });
+      });
+    }
+
+    if (el.selectRadioMicDevice) {
+      el.selectRadioMicDevice.addEventListener("change", async () => {
+        if (isRadioOnAir || isRadioPttActive) {
+          stopRadioMicStream();
+          await startRadioMicStream();
+          showToast("Switched microphone hardware input", "success");
+        }
+      });
+    }
+  }
+
+  // Initialization & Polling Cycle
+  function startPolling() {
+    // Initial fetch
+    fetchStatus();
+    fetchLogs();
+
+    // Regular polling for status (every 2.5s)
+    state.pollTimer = setInterval(() => {
+      fetchStatus();
+      if (state.currentTab === "logs") {
+        fetchLogs();
+      }
+    }, 2500);
+  }
+
+  // Launch on DOM ready
+  document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    initModalListeners();
+    initEventHandlers();
+    populateRadioMicDevices();
+    fetchVoiceBotVoices();
+    fetchVoiceBotConfig();
+    startPolling();
+  });
+})();
